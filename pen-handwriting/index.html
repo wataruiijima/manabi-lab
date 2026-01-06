@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pen Handwriting Practice</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>Pen Handwriting Practice</h1>
+      <div class="controls">
+        <label class="toggle">
+          <input id="pressureToggle" type="checkbox" checked />
+          <span>Pressure</span>
+        </label>
+        <button id="clearBtn" type="button">Clear</button>
+      </div>
+    </header>
+
+    <main class="stage">
+      <canvas id="pad" aria-label="Writing pad" role="img"></canvas>
+    </main>
+
+    <footer class="footer">
+      <div id="status">Ready</div>
+      <div class="hint">Use a pen or finger to draw. Pen pressure changes line width.</div>
+    </footer>
+
+    <script src="main.js"></script>
+  </body>
+</html>
