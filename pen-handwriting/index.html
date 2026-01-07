@@ -14,6 +14,7 @@
           <input id="pressureToggle" type="checkbox" checked />
           <span>Pressure</span>
         </label>
+        <button id="recognizeBtn" type="button">Recognize</button>
         <button id="clearBtn" type="button">Clear</button>
       </div>
     </header>
@@ -23,10 +24,15 @@
     </main>
 
     <footer class="footer">
-      <div id="status">Ready</div>
-      <div class="hint">Use a pen or finger to draw. Pen pressure changes line width.</div>
+      <div class="footer-left">
+        <div id="status">Ready</div>
+        <div id="modelStatus">Model: not loaded</div>
+      </div>
+      <div id="result">Result: -</div>
+      <div class="hint">Use a pen to draw. ONNX model runs locally.</div>
     </footer>
 
+    <script src="vendor/ort.min.js"></script>
     <script src="main.js"></script>
   </body>
 </html>
