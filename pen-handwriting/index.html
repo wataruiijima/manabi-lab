@@ -20,17 +20,26 @@
     </header>
 
     <main class="stage">
-      <canvas id="pad" aria-label="Writing pad" role="img"></canvas>
+      <section class="canvas-pane">
+        <canvas id="pad" aria-label="Writing pad" role="img"></canvas>
+      </section>
+      <aside class="info-pane" aria-live="polite">
+        <div class="result-card">
+          <div class="result-title">Result</div>
+          <div id="result">-</div>
+        </div>
+        <div class="status-card">
+          <div id="status">Ready</div>
+          <div id="modelStatus">Model: not loaded</div>
+        </div>
+        <div class="preview-panel">
+          <div class="preview-header">Model Input (28x28)</div>
+          <div id="previewGrid" class="preview-grid"></div>
+          <div class="preview-help">All digits fed to the model.</div>
+        </div>
+        <div class="hint">Draw clearly and keep strokes inside the pad.</div>
+      </aside>
     </main>
-
-    <footer class="footer">
-      <div class="footer-left">
-        <div id="status">Ready</div>
-        <div id="modelStatus">Model: not loaded</div>
-      </div>
-      <div id="result">Result: -</div>
-      <div class="hint">Use a pen to draw. ONNX model runs locally.</div>
-    </footer>
 
     <script src="vendor/ort.min.js"></script>
     <script src="main.js"></script>

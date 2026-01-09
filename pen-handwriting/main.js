@@ -6,6 +6,7 @@ const resultEl = document.getElementById("result");
 const clearBtn = document.getElementById("clearBtn");
 const recognizeBtn = document.getElementById("recognizeBtn");
 const pressureToggle = document.getElementById("pressureToggle");
+const previewGrid = document.getElementById("previewGrid");
 
 const inkCanvas = document.createElement("canvas");
 const inkCtx = inkCanvas.getContext("2d");
@@ -22,9 +23,8 @@ let modelReady = false;
 
 const baseLineWidth = 3;
 const maxLineWidth = 12;
-const modelUrl = "model/mnist-onnx/mnist-8.onnx";
+const modelUrl = "model/mnist-onnx/mnist-12.onnx";
 const digitSize = 28;
-
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   const ratio = window.devicePixelRatio || 1;
@@ -104,6 +104,7 @@ function startDrawing(event) {
 }
 
 function stopDrawing(event) {
+  event.preventDefault();
   if (!isDrawing) return;
   if (activePointerId !== event.pointerId) return;
   isDrawing = false;
@@ -116,6 +117,7 @@ function stopDrawing(event) {
 }
 
 function draw(event) {
+  event.preventDefault();
   if (!isDrawing) return;
   if (activePointerId !== event.pointerId) return;
   const point = getPoint(event);
@@ -143,6 +145,7 @@ function clearCanvas() {
   inkCtx.clearRect(0, 0, rect.width, rect.height);
   redrawGuideLines();
   setResult("-");
+  previewGrid.textContent = "";
 }
 
 function getInkImageData() {
@@ -212,6 +215,7 @@ function findDigitSegments(imageData) {
 }
 
 function makeDigitInput(segment) {
+  if (!segment) return null;
   const padding = Math.round(Math.max(segment.w, segment.h) * 0.2);
   const sx = Math.max(segment.x - padding, 0);
   const sy = Math.max(segment.y - padding, 0);
@@ -221,17 +225,57 @@ function makeDigitInput(segment) {
   digitCtx.clearRect(0, 0, digitSize, digitSize);
   digitCtx.fillStyle = "white";
   digitCtx.fillRect(0, 0, digitSize, digitSize);
-  digitCtx.drawImage(processingCanvas, sx, sy, sw, sh, 0, 0, digitSize, digitSize);
+  digitCtx.imageSmoothingEnabled = true;
+
+  const targetSize = 26;
+  const scale = targetSize / Math.max(sw, sh);
+  const dw = sw * scale;
+  const dh = sh * scale;
+  const dx = (digitSize - dw) / 2;
+  const dy = (digitSize - dh) / 2;
+
+  digitCtx.drawImage(processingCanvas, sx, sy, sw, sh, dx, dy, dw, dh);
 
   const imageData = digitCtx.getImageData(0, 0, digitSize, digitSize).data;
   const data = new Float32Array(digitSize * digitSize);
   for (let i = 0; i < data.length; i += 1) {
     const r = imageData[i * 4];
-    const value = 1 - r / 255;
-    data[i] = value;
+    const normalized = 1 - r / 255;
+    const boosted = Math.min(1, Math.max(0, (normalized - 0.10) / 0.90));
+    data[i] = boosted;
   }
 
-  return new ort.Tensor("float32", data, [1, 1, digitSize, digitSize]);
+  return { tensor: new ort.Tensor("float32", data, [1, 1, digitSize, digitSize]), data };
+}
+
+function renderPreviewTiles(list) {
+  previewGrid.textContent = "";
+  for (const data of list) {
+    const tile = document.createElement("canvas");
+    tile.width = digitSize;
+    tile.height = digitSize;
+    const ctx = tile.getContext("2d");
+    const imageData = ctx.createImageData(digitSize, digitSize);
+    if (data) {
+      for (let i = 0; i < data.length; i += 1) {
+        const value = Math.round((1 - data[i]) * 255);
+        imageData.data[i * 4] = value;
+        imageData.data[i * 4 + 1] = value;
+        imageData.data[i * 4 + 2] = value;
+        imageData.data[i * 4 + 3] = 255;
+      }
+    } else {
+      for (let i = 0; i < imageData.data.length; i += 4) {
+        imageData.data[i] = 255;
+        imageData.data[i + 1] = 255;
+        imageData.data[i + 2] = 255;
+        imageData.data[i + 3] = 255;
+      }
+    }
+    ctx.putImageData(imageData, 0, 0);
+    tile.classList.add("preview-flash");
+    previewGrid.appendChild(tile);
+  }
 }
 
 async function ensureModel() {
@@ -276,10 +320,22 @@ async function recognizeDigits() {
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
   const predictions = [];
+  const previews = [];
 
   for (const segment of segments) {
-    const input = makeDigitInput(segment);
-    const output = await session.run({ [inputName]: input });
+    if (!segment) {
+      predictions.push("_");
+      previews.push(null);
+      continue;
+    }
+    const result = makeDigitInput(segment);
+    if (!result) {
+      predictions.push("_");
+      previews.push(null);
+      continue;
+    }
+    previews.push(result.data);
+    const output = await session.run({ [inputName]: result.tensor });
     const scores = output[outputName].data;
 
     let bestIndex = 0;
@@ -293,6 +349,7 @@ async function recognizeDigits() {
     predictions.push(bestIndex);
   }
 
+  renderPreviewTiles(previews);
   setResult(predictions.join(""));
 }
 
@@ -314,6 +371,21 @@ canvas.addEventListener("pointermove", draw);
 canvas.addEventListener("pointerup", stopDrawing);
 canvas.addEventListener("pointercancel", stopDrawing);
 canvas.addEventListener("pointerleave", stopDrawing);
+canvas.addEventListener("contextmenu", (event) => event.preventDefault());
+canvas.addEventListener(
+  "touchstart",
+  (event) => {
+    event.preventDefault();
+  },
+  { passive: false }
+);
+canvas.addEventListener(
+  "touchmove",
+  (event) => {
+    event.preventDefault();
+  },
+  { passive: false }
+);
 
 clearBtn.addEventListener("click", clearCanvas);
 recognizeBtn.addEventListener("click", recognizeDigits);
