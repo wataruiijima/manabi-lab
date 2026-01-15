@@ -82,6 +82,7 @@ button:hover {
   min-width: 0;
   height: 100%;
   grid-area: canvas;
+  position: relative;
 }
 
 .info-pane {
@@ -89,6 +90,10 @@ button:hover {
   gap: 14px;
   align-items: start;
   grid-area: info;
+  align-content: start;
+  grid-auto-rows: max-content;
+  height: 100%;
+  overflow-y: auto;
 }
 
 #result {
@@ -133,6 +138,48 @@ button:hover {
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+}
+
+.canvas-disabled #pad {
+  pointer-events: none;
+}
+
+.loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 250, 241, 0.85);
+  border-radius: 16px;
+}
+
+.canvas-disabled .loading-overlay {
+  display: flex;
+}
+
+.loading-card {
+  padding: 16px 20px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fffaf1;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.loading-title {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #6b6254;
+  font-weight: 700;
+}
+
+.loading-text {
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 6px;
+  color: #2b2b2b;
 }
 
 .preview-panel {

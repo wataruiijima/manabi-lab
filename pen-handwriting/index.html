@@ -22,6 +22,12 @@
     <main class="stage">
       <section class="canvas-pane">
         <canvas id="pad" aria-label="Writing pad" role="img"></canvas>
+        <div id="loadingOverlay" class="loading-overlay" aria-live="polite">
+          <div class="loading-card">
+            <div class="loading-title">Loading Model</div>
+            <div class="loading-text">Preparing recognition…</div>
+          </div>
+        </div>
       </section>
       <aside class="info-pane" aria-live="polite">
         <div class="result-card">

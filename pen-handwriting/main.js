@@ -7,6 +7,7 @@ const clearBtn = document.getElementById("clearBtn");
 const recognizeBtn = document.getElementById("recognizeBtn");
 const pressureToggle = document.getElementById("pressureToggle");
 const previewGrid = document.getElementById("previewGrid");
+const loadingOverlay = document.getElementById("loadingOverlay");
 
 const inkCanvas = document.createElement("canvas");
 const inkCtx = inkCanvas.getContext("2d");
@@ -20,6 +21,9 @@ let lastPoint = null;
 let activePointerId = null;
 let session = null;
 let modelReady = false;
+let recognizeTimer = null;
+let recognizeInFlight = false;
+let recognizePending = false;
 
 const baseLineWidth = 3;
 const maxLineWidth = 12;
@@ -89,6 +93,15 @@ function setResult(text) {
   resultEl.textContent = `Result: ${text}`;
 }
 
+function setCanvasEnabled(enabled) {
+  document.body.classList.toggle("canvas-disabled", !enabled);
+  if (!enabled) {
+    loadingOverlay.setAttribute("aria-hidden", "false");
+  } else {
+    loadingOverlay.setAttribute("aria-hidden", "true");
+  }
+}
+
 function startDrawing(event) {
   event.preventDefault();
   const point = getPoint(event);
@@ -114,6 +127,7 @@ function stopDrawing(event) {
   if (event.pointerId != null) {
     canvas.releasePointerCapture(event.pointerId);
   }
+  scheduleRecognize();
 }
 
 function draw(event) {
@@ -138,6 +152,7 @@ function draw(event) {
   inkCtx.stroke();
 
   lastPoint = point;
+  scheduleRecognize();
 }
 
 function clearCanvas() {
@@ -297,11 +312,35 @@ async function ensureModel() {
     session = await ort.InferenceSession.create(modelUrl);
     modelReady = true;
     setModelStatus("loaded");
+    setCanvasEnabled(true);
     return true;
   } catch (error) {
     console.error(error);
     setModelStatus("missing model files");
+    setCanvasEnabled(false);
     return false;
+  }
+}
+
+function scheduleRecognize() {
+  if (!modelReady) return;
+  if (recognizeTimer) clearTimeout(recognizeTimer);
+  recognizeTimer = setTimeout(() => {
+    void runRecognize();
+  }, 180);
+}
+
+async function runRecognize() {
+  if (recognizeInFlight) {
+    recognizePending = true;
+    return;
+  }
+  recognizeInFlight = true;
+  await recognizeDigits();
+  recognizeInFlight = false;
+  if (recognizePending) {
+    recognizePending = false;
+    scheduleRecognize();
   }
 }
 
@@ -355,9 +394,11 @@ async function recognizeDigits() {
 
 resizeCanvas();
 setResult("-");
+setCanvasEnabled(false);
 
 if (window.ort) {
-  setModelStatus("ready to load");
+  setModelStatus("loading...");
+  void ensureModel();
 } else {
   setModelStatus("ONNX Runtime not found");
 }
@@ -388,4 +429,4 @@ canvas.addEventListener(
 );
 
 clearBtn.addEventListener("click", clearCanvas);
-recognizeBtn.addEventListener("click", recognizeDigits);
+recognizeBtn.addEventListener("click", runRecognize);
