@@ -4,6 +4,7 @@ const statusEl = document.getElementById("status");
 const modelStatusEl = document.getElementById("modelStatus");
 const resultEl = document.getElementById("result");
 const clearBtn = document.getElementById("clearBtn");
+const undoBtn = document.getElementById("undoBtn");
 const recognizeBtn = document.getElementById("recognizeBtn");
 const pressureToggle = document.getElementById("pressureToggle");
 const previewGrid = document.getElementById("previewGrid");
@@ -24,6 +25,9 @@ let modelReady = false;
 let recognizeTimer = null;
 let recognizeInFlight = false;
 let recognizePending = false;
+let currentStroke = null;
+
+const strokes = [];
 
 const baseLineWidth = 3;
 const maxLineWidth = 12;
@@ -53,6 +57,42 @@ function resizeCanvas() {
   inkCtx.strokeStyle = "#1b1b1b";
 
   redrawGuideLines();
+}
+
+function getLineWidth(point) {
+  const pressure = pressureToggle.checked ? point.pressure : 0.5;
+  return baseLineWidth + pressure * (maxLineWidth - baseLineWidth);
+}
+
+function updateUndoState() {
+  undoBtn.disabled = strokes.length === 0;
+}
+
+function resetRecognition() {
+  setResult("-");
+  previewGrid.textContent = "";
+}
+
+function drawSegment(targetCtx, from, to) {
+  targetCtx.lineWidth = to.width;
+  targetCtx.beginPath();
+  targetCtx.moveTo(from.x, from.y);
+  targetCtx.lineTo(to.x, to.y);
+  targetCtx.stroke();
+}
+
+function redrawStrokes() {
+  const rect = canvas.getBoundingClientRect();
+  inkCtx.clearRect(0, 0, rect.width, rect.height);
+  redrawGuideLines();
+  for (const stroke of strokes) {
+    for (let i = 1; i < stroke.length; i += 1) {
+      const from = stroke[i - 1];
+      const to = stroke[i];
+      drawSegment(ctx, from, to);
+      drawSegment(inkCtx, from, to);
+    }
+  }
 }
 
 function redrawGuideLines() {
@@ -110,10 +150,15 @@ function startDrawing(event) {
     return;
   }
   isDrawing = true;
-  lastPoint = point;
+  currentStroke = [];
+  const startPoint = { x: point.x, y: point.y, width: getLineWidth(point) };
+  currentStroke.push(startPoint);
+  strokes.push(currentStroke);
+  lastPoint = startPoint;
   activePointerId = event.pointerId;
   setStatus(`Drawing (${point.pointerType})`);
   canvas.setPointerCapture(event.pointerId);
+  updateUndoState();
 }
 
 function stopDrawing(event) {
@@ -121,11 +166,20 @@ function stopDrawing(event) {
   if (!isDrawing) return;
   if (activePointerId !== event.pointerId) return;
   isDrawing = false;
+  if (currentStroke && currentStroke.length < 2) {
+    strokes.pop();
+  }
+  currentStroke = null;
   lastPoint = null;
   activePointerId = null;
   setStatus("Ready");
   if (event.pointerId != null) {
     canvas.releasePointerCapture(event.pointerId);
+  }
+  updateUndoState();
+  if (strokes.length === 0) {
+    resetRecognition();
+    return;
   }
   scheduleRecognize();
 }
@@ -135,23 +189,11 @@ function draw(event) {
   if (!isDrawing) return;
   if (activePointerId !== event.pointerId) return;
   const point = getPoint(event);
-  const pressure = pressureToggle.checked ? point.pressure : 0.5;
-  const width = baseLineWidth + pressure * (maxLineWidth - baseLineWidth);
-
-  ctx.lineWidth = width;
-  inkCtx.lineWidth = width;
-
-  ctx.beginPath();
-  ctx.moveTo(lastPoint.x, lastPoint.y);
-  ctx.lineTo(point.x, point.y);
-  ctx.stroke();
-
-  inkCtx.beginPath();
-  inkCtx.moveTo(lastPoint.x, lastPoint.y);
-  inkCtx.lineTo(point.x, point.y);
-  inkCtx.stroke();
-
-  lastPoint = point;
+  const nextPoint = { x: point.x, y: point.y, width: getLineWidth(point) };
+  currentStroke.push(nextPoint);
+  drawSegment(ctx, lastPoint, nextPoint);
+  drawSegment(inkCtx, lastPoint, nextPoint);
+  lastPoint = nextPoint;
   scheduleRecognize();
 }
 
@@ -159,8 +201,21 @@ function clearCanvas() {
   const rect = canvas.getBoundingClientRect();
   inkCtx.clearRect(0, 0, rect.width, rect.height);
   redrawGuideLines();
-  setResult("-");
-  previewGrid.textContent = "";
+  strokes.length = 0;
+  updateUndoState();
+  resetRecognition();
+}
+
+function undoLastStroke() {
+  if (strokes.length === 0) return;
+  strokes.pop();
+  redrawStrokes();
+  updateUndoState();
+  if (strokes.length === 0) {
+    resetRecognition();
+    return;
+  }
+  scheduleRecognize();
 }
 
 function getInkImageData() {
@@ -395,6 +450,7 @@ async function recognizeDigits() {
 resizeCanvas();
 setResult("-");
 setCanvasEnabled(false);
+updateUndoState();
 
 if (window.ort) {
   setModelStatus("loading...");
@@ -429,4 +485,5 @@ canvas.addEventListener(
 );
 
 clearBtn.addEventListener("click", clearCanvas);
+undoBtn.addEventListener("click", undoLastStroke);
 recognizeBtn.addEventListener("click", runRecognize);

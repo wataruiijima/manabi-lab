@@ -59,6 +59,11 @@ button:hover {
   border-color: var(--accent);
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .toggle {
   display: inline-flex;
   align-items: center;
