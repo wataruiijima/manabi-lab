@@ -232,6 +232,7 @@ function findDigitSegments(imageData) {
   const minPixels = 40;
 
   const index = (x, y) => y * width + x;
+  // alpha がしきい値を超えるピクセルをインクとして扱う。
   const isInk = (x, y) => data[index(x, y) * 4 + 3] > 20;
 
   for (let y = 0; y < height; y += 1) {
@@ -239,6 +240,7 @@ function findDigitSegments(imageData) {
       const idx = index(x, y);
       if (visited[idx] || !isInk(x, y)) continue;
 
+      // 連結成分のフラッドフィルでインク領域と境界を収集する。
       let minX = x;
       let maxX = x;
       let minY = y;
@@ -269,6 +271,7 @@ function findDigitSegments(imageData) {
         }
       }
 
+      // 小さすぎる塊はノイズとして無視する。
       if (count >= minPixels) {
         boxes.push({
           x: minX,
@@ -281,6 +284,7 @@ function findDigitSegments(imageData) {
     }
   }
 
+  // 左から右の順に並べて桁認識に使う。
   return boxes.sort((a, b) => a.x - b.x);
 }
 

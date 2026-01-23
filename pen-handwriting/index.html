@@ -8,11 +8,11 @@
   </head>
   <body>
     <header class="topbar">
-      <h1>Pen Handwriting Practice</h1>
+      <h1>ペン手書き練習</h1>
       <div class="controls">
         <label class="toggle">
           <input id="pressureToggle" type="checkbox" checked />
-          <span>Pressure</span>
+          <span>筆圧</span>
         </label>
         <button id="recognizeBtn" type="button">Recognize</button>
         <button id="undoBtn" type="button" disabled>Undo</button>
@@ -22,11 +22,11 @@
 
     <main class="stage">
       <section class="canvas-pane">
-        <canvas id="pad" aria-label="Writing pad" role="img"></canvas>
+        <canvas id="pad" aria-label="書き取りパッド" role="img"></canvas>
         <div id="loadingOverlay" class="loading-overlay" aria-live="polite">
           <div class="loading-card">
-            <div class="loading-title">Loading Model</div>
-            <div class="loading-text">Preparing recognition…</div>
+            <div class="loading-title">モデルを読み込み中</div>
+            <div class="loading-text">認識の準備をしています…</div>
           </div>
         </div>
       </section>
@@ -40,11 +40,11 @@
           <div id="modelStatus">Model: not loaded</div>
         </div>
         <div class="preview-panel">
-          <div class="preview-header">Model Input (28x28)</div>
+          <div class="preview-header">モデル入力（28x28）</div>
           <div id="previewGrid" class="preview-grid"></div>
-          <div class="preview-help">All digits fed to the model.</div>
+          <div class="preview-help">モデルに渡した文字の一覧。</div>
         </div>
-        <div class="hint">Draw clearly and keep strokes inside the pad.</div>
+        <div class="hint">はっきり書いて、線は枠の中に収めてください。</div>
       </aside>
     </main>
 
