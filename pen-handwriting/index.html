@@ -14,6 +14,13 @@
           <input id="pressureToggle" type="checkbox" checked />
           <span>筆圧</span>
         </label>
+        <label class="select">
+          <span>モデル</span>
+          <select id="modelSelect">
+            <option value="mnist12">MNIST-12</option>
+            <option value="lenet">LeNet</option>
+          </select>
+        </label>
         <button id="recognizeBtn" type="button">Recognize</button>
         <button id="undoBtn" type="button" disabled>Undo</button>
         <button id="clearBtn" type="button">Clear</button>
@@ -48,7 +55,7 @@
       </aside>
     </main>
 
-    <script src="vendor/ort.min.js"></script>
+    <script src="../vendor/ort.min.js"></script>
     <script src="main.js"></script>
   </body>
 </html>

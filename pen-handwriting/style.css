@@ -71,6 +71,22 @@ button:disabled {
   font-size: 14px;
 }
 
+.select {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.select select {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  padding: 6px 10px;
+  border-radius: 10px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
 .stage {
   padding: 16px;
   display: grid;

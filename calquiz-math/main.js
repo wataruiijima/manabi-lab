@@ -1,14 +1,15 @@
 const canvas = document.getElementById("pad");
 const ctx = canvas.getContext("2d");
-const statusEl = document.getElementById("status");
+const statusEl = document.getElementById("roundStatus");
 const modelStatusEl = document.getElementById("modelStatus");
-const resultEl = document.getElementById("result");
+const timerEl = document.getElementById("timer");
+const meterFill = document.getElementById("meterFill");
+const equationEl = document.getElementById("equation");
+const equationShell = document.querySelector(".equation-shell");
+const equationHint = document.getElementById("equationHint");
+const candidatesEl = document.getElementById("candidates");
 const clearBtn = document.getElementById("clearBtn");
-const undoBtn = document.getElementById("undoBtn");
-const recognizeBtn = document.getElementById("recognizeBtn");
-const pressureToggle = document.getElementById("pressureToggle");
-const modelSelect = document.getElementById("modelSelect");
-const previewGrid = document.getElementById("previewGrid");
+const startBtn = document.getElementById("startBtn");
 const loadingOverlay = document.getElementById("loadingOverlay");
 
 const inkCanvas = document.createElement("canvas");
@@ -26,18 +27,18 @@ let modelReady = false;
 let recognizeTimer = null;
 let recognizeInFlight = false;
 let recognizePending = false;
-let currentStroke = null;
 
-const strokes = [];
+let roundActive = false;
+let roundStart = 0;
+let roundRaf = null;
+let currentAnswer = null;
 
-const baseLineWidth = 3;
+const baseLineWidth = 4;
 const maxLineWidth = 12;
-const modelUrls = {
-  mnist12: "../model/mnist-onnx/mnist-12.onnx",
-  lenet: "../model/lenet/lenet.onnx",
-};
-let modelUrl = modelUrls[modelSelect.value] || modelUrls.mnist12;
+const modelUrl = "../model/mnist-onnx/mnist-12.onnx";
 const digitSize = 28;
+const roundDurationMs = 10000;
+
 function resizeCanvas() {
   const rect = canvas.getBoundingClientRect();
   const ratio = window.devicePixelRatio || 1;
@@ -55,65 +56,11 @@ function resizeCanvas() {
 
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.strokeStyle = "#1b1b1b";
+  ctx.strokeStyle = "#1c1b19";
 
   inkCtx.lineCap = "round";
   inkCtx.lineJoin = "round";
-  inkCtx.strokeStyle = "#1b1b1b";
-
-  redrawGuideLines();
-}
-
-function getLineWidth(point) {
-  const pressure = pressureToggle.checked ? point.pressure : 0.5;
-  return baseLineWidth + pressure * (maxLineWidth - baseLineWidth);
-}
-
-function updateUndoState() {
-  undoBtn.disabled = strokes.length === 0;
-}
-
-function resetRecognition() {
-  setResult("-");
-  previewGrid.textContent = "";
-}
-
-function drawSegment(targetCtx, from, to) {
-  targetCtx.lineWidth = to.width;
-  targetCtx.beginPath();
-  targetCtx.moveTo(from.x, from.y);
-  targetCtx.lineTo(to.x, to.y);
-  targetCtx.stroke();
-}
-
-function redrawStrokes() {
-  const rect = canvas.getBoundingClientRect();
-  inkCtx.clearRect(0, 0, rect.width, rect.height);
-  redrawGuideLines();
-  for (const stroke of strokes) {
-    for (let i = 1; i < stroke.length; i += 1) {
-      const from = stroke[i - 1];
-      const to = stroke[i];
-      drawSegment(ctx, from, to);
-      drawSegment(inkCtx, from, to);
-    }
-  }
-}
-
-function redrawGuideLines() {
-  const rect = canvas.getBoundingClientRect();
-  ctx.clearRect(0, 0, rect.width, rect.height);
-  const lineGap = 48;
-  ctx.save();
-  ctx.strokeStyle = "#efe5d5";
-  ctx.lineWidth = 1;
-  for (let y = lineGap; y < rect.height; y += lineGap) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(rect.width, y);
-    ctx.stroke();
-  }
-  ctx.restore();
+  inkCtx.strokeStyle = "#1c1b19";
 }
 
 function getPoint(event) {
@@ -124,6 +71,20 @@ function getPoint(event) {
     pressure: event.pressure || 0.5,
     pointerType: event.pointerType || "mouse",
   };
+}
+
+function getLineWidth(point) {
+  const pressure = point.pointerType === "pen" ? point.pressure : 0.5;
+  return baseLineWidth + pressure * (maxLineWidth - baseLineWidth);
+}
+
+function setCanvasEnabled(enabled) {
+  document.body.classList.toggle("canvas-disabled", !enabled);
+  if (!enabled) {
+    loadingOverlay.setAttribute("aria-hidden", "false");
+  } else {
+    loadingOverlay.setAttribute("aria-hidden", "true");
+  }
 }
 
 function setStatus(text) {
@@ -141,36 +102,14 @@ function formatModelError(error) {
   return "model load failed";
 }
 
-function setResult(text) {
-  resultEl.textContent = `Result: ${text}`;
-}
-
-function setCanvasEnabled(enabled) {
-  document.body.classList.toggle("canvas-disabled", !enabled);
-  if (!enabled) {
-    loadingOverlay.setAttribute("aria-hidden", "false");
-  } else {
-    loadingOverlay.setAttribute("aria-hidden", "true");
-  }
-}
-
 function startDrawing(event) {
   event.preventDefault();
   const point = getPoint(event);
-  if (point.pointerType !== "pen") {
-    setStatus(`Ignored (${point.pointerType})`);
-    return;
-  }
+  if (point.pointerType === "touch") return;
   isDrawing = true;
-  currentStroke = [];
-  const startPoint = { x: point.x, y: point.y, width: getLineWidth(point) };
-  currentStroke.push(startPoint);
-  strokes.push(currentStroke);
-  lastPoint = startPoint;
+  lastPoint = { x: point.x, y: point.y, width: getLineWidth(point) };
   activePointerId = event.pointerId;
-  setStatus(`Drawing (${point.pointerType})`);
   canvas.setPointerCapture(event.pointerId);
-  updateUndoState();
 }
 
 function stopDrawing(event) {
@@ -178,20 +117,10 @@ function stopDrawing(event) {
   if (!isDrawing) return;
   if (activePointerId !== event.pointerId) return;
   isDrawing = false;
-  if (currentStroke && currentStroke.length < 2) {
-    strokes.pop();
-  }
-  currentStroke = null;
   lastPoint = null;
   activePointerId = null;
-  setStatus("Ready");
   if (event.pointerId != null) {
     canvas.releasePointerCapture(event.pointerId);
-  }
-  updateUndoState();
-  if (strokes.length === 0) {
-    resetRecognition();
-    return;
   }
   scheduleRecognize();
 }
@@ -202,32 +131,28 @@ function draw(event) {
   if (activePointerId !== event.pointerId) return;
   const point = getPoint(event);
   const nextPoint = { x: point.x, y: point.y, width: getLineWidth(point) };
-  currentStroke.push(nextPoint);
-  drawSegment(ctx, lastPoint, nextPoint);
-  drawSegment(inkCtx, lastPoint, nextPoint);
+
+  ctx.lineWidth = nextPoint.width;
+  ctx.beginPath();
+  ctx.moveTo(lastPoint.x, lastPoint.y);
+  ctx.lineTo(nextPoint.x, nextPoint.y);
+  ctx.stroke();
+
+  inkCtx.lineWidth = nextPoint.width;
+  inkCtx.beginPath();
+  inkCtx.moveTo(lastPoint.x, lastPoint.y);
+  inkCtx.lineTo(nextPoint.x, nextPoint.y);
+  inkCtx.stroke();
+
   lastPoint = nextPoint;
   scheduleRecognize();
 }
 
-function clearCanvas() {
+function clearPad() {
   const rect = canvas.getBoundingClientRect();
+  ctx.clearRect(0, 0, rect.width, rect.height);
   inkCtx.clearRect(0, 0, rect.width, rect.height);
-  redrawGuideLines();
-  strokes.length = 0;
-  updateUndoState();
-  resetRecognition();
-}
-
-function undoLastStroke() {
-  if (strokes.length === 0) return;
-  strokes.pop();
-  redrawStrokes();
-  updateUndoState();
-  if (strokes.length === 0) {
-    resetRecognition();
-    return;
-  }
-  scheduleRecognize();
+  updateCandidates([]);
 }
 
 function getInkImageData() {
@@ -327,40 +252,57 @@ function makeDigitInput(segment) {
   for (let i = 0; i < data.length; i += 1) {
     const r = imageData[i * 4];
     const normalized = 1 - r / 255;
-    const boosted = Math.min(1, Math.max(0, (normalized - 0.10) / 0.90));
-    data[i] = boosted;
+    data[i] = Math.min(1, Math.max(0, (normalized - 0.1) / 0.9));
   }
 
-  return { tensor: new ort.Tensor("float32", data, [1, 1, digitSize, digitSize]), data };
+  return { tensor: new ort.Tensor("float32", data, [1, 1, digitSize, digitSize]) };
 }
 
-function renderPreviewTiles(list) {
-  previewGrid.textContent = "";
-  for (const data of list) {
-    const tile = document.createElement("canvas");
-    tile.width = digitSize;
-    tile.height = digitSize;
-    const ctx = tile.getContext("2d");
-    const imageData = ctx.createImageData(digitSize, digitSize);
-    if (data) {
-      for (let i = 0; i < data.length; i += 1) {
-        const value = Math.round((1 - data[i]) * 255);
-        imageData.data[i * 4] = value;
-        imageData.data[i * 4 + 1] = value;
-        imageData.data[i * 4 + 2] = value;
-        imageData.data[i * 4 + 3] = 255;
-      }
-    } else {
-      for (let i = 0; i < imageData.data.length; i += 4) {
-        imageData.data[i] = 255;
-        imageData.data[i + 1] = 255;
-        imageData.data[i + 2] = 255;
-        imageData.data[i + 3] = 255;
+function getTopDigits(scores, count) {
+  const entries = scores.map((score, digit) => ({ digit, score }));
+  entries.sort((a, b) => b.score - a.score);
+  return entries.slice(0, count);
+}
+
+function buildCandidates(rankLists, limit) {
+  let beams = [{ text: "", score: 0 }];
+  for (const ranks of rankLists) {
+    const next = [];
+    for (const beam of beams) {
+      for (const rank of ranks) {
+        next.push({
+          text: beam.text + rank.digit,
+          score: beam.score + rank.score,
+        });
       }
     }
-    ctx.putImageData(imageData, 0, 0);
-    tile.classList.add("preview-flash");
-    previewGrid.appendChild(tile);
+    next.sort((a, b) => b.score - a.score);
+    beams = next.slice(0, limit);
+  }
+  const seen = new Set();
+  return beams.filter((beam) => {
+    if (seen.has(beam.text)) return false;
+    seen.add(beam.text);
+    return true;
+  });
+}
+
+function updateCandidates(list) {
+  candidatesEl.textContent = "";
+  if (list.length === 0) {
+    const empty = document.createElement("div");
+    empty.textContent = "--";
+    empty.className = "hint";
+    candidatesEl.appendChild(empty);
+    return;
+  }
+  for (const item of list) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "candidate";
+    btn.textContent = item.text;
+    btn.dataset.value = item.text;
+    candidatesEl.appendChild(btn);
   }
 }
 
@@ -393,24 +335,12 @@ async function ensureModel() {
   }
 }
 
-function selectModel(key) {
-  const nextUrl = modelUrls[key];
-  if (!nextUrl) return;
-  modelUrl = nextUrl;
-  modelReady = false;
-  session = null;
-  setCanvasEnabled(false);
-  void ensureModel().then(() => {
-    if (strokes.length > 0) scheduleRecognize();
-  });
-}
-
 function scheduleRecognize() {
   if (!modelReady) return;
   if (recognizeTimer) clearTimeout(recognizeTimer);
   recognizeTimer = setTimeout(() => {
     void runRecognize();
-  }, 180);
+  }, 200);
 }
 
 async function runRecognize() {
@@ -435,50 +365,169 @@ async function recognizeDigits() {
   const segments = findDigitSegments(imageData);
 
   if (segments.length === 0) {
-    setResult("No digits");
+    updateCandidates([]);
     return;
   }
 
   const inputName = session.inputNames[0];
   const outputName = session.outputNames[0];
-  const predictions = [];
-  const previews = [];
+  const rankLists = [];
 
   for (const segment of segments) {
-    if (!segment) {
-      predictions.push("_");
-      previews.push(null);
-      continue;
-    }
     const result = makeDigitInput(segment);
-    if (!result) {
-      predictions.push("_");
-      previews.push(null);
-      continue;
-    }
-    previews.push(result.data);
+    if (!result) continue;
     const output = await session.run({ [inputName]: result.tensor });
-    const scores = output[outputName].data;
-
-    let bestIndex = 0;
-    let bestScore = scores[0];
-    for (let i = 1; i < scores.length; i += 1) {
-      if (scores[i] > bestScore) {
-        bestScore = scores[i];
-        bestIndex = i;
-      }
-    }
-    predictions.push(bestIndex);
+    const scores = Array.from(output[outputName].data);
+    rankLists.push(getTopDigits(scores, 3));
   }
 
-  renderPreviewTiles(previews);
-  setResult(predictions.join(""));
+  const candidates = buildCandidates(rankLists, 5);
+  updateCandidates(candidates);
+}
+
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function pickQuestion() {
+  const useMultiply = Math.random() < 0.5;
+  if (useMultiply) {
+    const a = randInt(10, 99);
+    const b = randInt(10, 99);
+    return { text: `${a} × ${b}`, answer: a * b };
+  }
+  const divisor = randInt(10, 99);
+  const quotient = randInt(10, 99);
+  const dividend = divisor * quotient;
+  return { text: `${dividend} ÷ ${divisor}`, answer: quotient };
+}
+
+function setEquation(text) {
+  equationEl.textContent = text;
+  equationEl.classList.remove("success", "fail", "growing");
+  equationShell.classList.remove("hit");
+  void equationEl.offsetWidth;
+  equationEl.classList.add("growing");
+}
+
+function updateTimerDisplay(remainingMs) {
+  const seconds = Math.max(0, remainingMs / 1000);
+  timerEl.textContent = `${seconds.toFixed(1)}s`;
+  const ratio = Math.max(0, Math.min(1, remainingMs / roundDurationMs));
+  meterFill.style.width = `${ratio * 100}%`;
+}
+
+function tickRound() {
+  const now = performance.now();
+  const elapsed = now - roundStart;
+  const remaining = roundDurationMs - elapsed;
+  updateTimerDisplay(remaining);
+  if (remaining <= 0) {
+    failRound();
+    return;
+  }
+  roundRaf = requestAnimationFrame(tickRound);
+}
+
+function startRound() {
+  const question = pickQuestion();
+  currentAnswer = question.answer;
+  setEquation(question.text);
+  equationHint.textContent = "10秒以内に答えを撃て！";
+  setStatus("GO");
+  roundActive = true;
+  roundStart = performance.now();
+  if (roundRaf) cancelAnimationFrame(roundRaf);
+  updateTimerDisplay(roundDurationMs);
+  tickRound();
+  clearPad();
+}
+
+function endRound() {
+  roundActive = false;
+  if (roundRaf) cancelAnimationFrame(roundRaf);
+  roundRaf = null;
+  equationEl.classList.remove("growing");
+}
+
+function winRound() {
+  endRound();
+  setStatus("CLEAR!");
+  equationShell.classList.add("hit");
+  equationEl.classList.add("success");
+  equationHint.textContent = "次の問題へ…";
+  setTimeout(() => {
+    startRound();
+  }, 800);
+}
+
+function failRound() {
+  endRound();
+  setStatus("TIME UP");
+  equationEl.classList.add("fail");
+  equationHint.textContent = "もう一度スタート";
+}
+
+function launchProjectile(button, value, isCorrect) {
+  const startRect = button.getBoundingClientRect();
+  const endRect = equationEl.getBoundingClientRect();
+  const startX = startRect.left + startRect.width / 2;
+  const startY = startRect.top + startRect.height / 2;
+  const endX = endRect.left + endRect.width / 2;
+  const endY = endRect.top + endRect.height / 2;
+  const dx = endX - startX;
+  const dy = endY - startY;
+
+  const projectile = document.createElement("div");
+  projectile.className = `projectile${isCorrect ? "" : " miss"}`;
+  projectile.textContent = value;
+  projectile.style.left = `${startX}px`;
+  projectile.style.top = `${startY}px`;
+  document.body.appendChild(projectile);
+
+  const fly = projectile.animate(
+    [
+      { transform: "translate(-50%, -50%) scale(1)" },
+      { transform: `translate(${dx}px, ${dy}px) scale(1)` },
+    ],
+    { duration: 380, easing: "cubic-bezier(0.3, 0.7, 0.2, 1)" }
+  );
+
+  fly.onfinish = () => {
+    if (isCorrect) {
+      projectile.remove();
+      winRound();
+      return;
+    }
+    const fall = projectile.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(1)`, opacity: 1 },
+        { transform: `translate(${dx}px, ${dy + 120}px) scale(0.6)`, opacity: 0 },
+      ],
+      { duration: 260, easing: "ease-in" }
+    );
+    fall.onfinish = () => projectile.remove();
+    equationEl.classList.add("fail");
+    setTimeout(() => equationEl.classList.remove("fail"), 500);
+  };
+}
+
+function handleCandidateClick(event) {
+  const btn = event.target.closest("button");
+  if (!btn) return;
+  if (!roundActive) return;
+  const value = btn.dataset.value;
+  if (!value) return;
+  const numeric = Number.parseInt(value, 10);
+  if (Number.isNaN(numeric)) return;
+  const isCorrect = numeric === currentAnswer;
+  launchProjectile(btn, value, isCorrect);
 }
 
 resizeCanvas();
-setResult("-");
 setCanvasEnabled(false);
-updateUndoState();
+setStatus("READY");
+updateTimerDisplay(roundDurationMs);
 
 if (window.ort) {
   setModelStatus("loading...");
@@ -487,9 +536,7 @@ if (window.ort) {
   setModelStatus("ONNX Runtime not found");
 }
 
-window.addEventListener("resize", () => {
-  resizeCanvas();
-});
+window.addEventListener("resize", resizeCanvas);
 
 canvas.addEventListener("pointerdown", startDrawing);
 canvas.addEventListener("pointermove", draw);
@@ -497,24 +544,8 @@ canvas.addEventListener("pointerup", stopDrawing);
 canvas.addEventListener("pointercancel", stopDrawing);
 canvas.addEventListener("pointerleave", stopDrawing);
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
-canvas.addEventListener(
-  "touchstart",
-  (event) => {
-    event.preventDefault();
-  },
-  { passive: false }
-);
-canvas.addEventListener(
-  "touchmove",
-  (event) => {
-    event.preventDefault();
-  },
-  { passive: false }
-);
 
-clearBtn.addEventListener("click", clearCanvas);
-undoBtn.addEventListener("click", undoLastStroke);
-recognizeBtn.addEventListener("click", runRecognize);
-modelSelect.addEventListener("change", (event) => {
-  selectModel(event.target.value);
-});
+clearBtn.addEventListener("click", clearPad);
+startBtn.addEventListener("click", startRound);
+
+candidatesEl.addEventListener("click", handleCandidateClick);

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>算数ブレイク</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="title">
+        <span class="title-tag">NEP</span>
+        <span>算数ブレイク</span>
+      </div>
+      <div class="status">
+        <div id="roundStatus" class="status-text">READY</div>
+        <div class="timer">
+          <span id="timer">10.0s</span>
+          <div class="meter">
+            <div id="meterFill" class="meter-fill"></div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="arena">
+      <section class="equation-stage">
+        <div class="equation-shell">
+          <div id="equation" class="equation">--</div>
+          <div id="equationGlow" class="equation-glow"></div>
+        </div>
+        <div id="equationHint" class="equation-hint">
+          10秒以内に答えを撃て！
+        </div>
+      </section>
+
+      <section class="input-stage">
+        <div class="pad-wrap">
+          <canvas id="pad" aria-label="解答入力" role="img"></canvas>
+          <div id="loadingOverlay" class="loading-overlay" aria-live="polite">
+            <div class="loading-card">
+              <div class="loading-title">モデル読み込み中</div>
+              <div class="loading-text">手書き認識を準備しています…</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="candidate-area">
+          <div class="candidate-title">候補</div>
+          <div id="candidates" class="candidates"></div>
+        </div>
+
+        <div class="actions">
+          <button id="clearBtn" type="button">Clear</button>
+          <button id="startBtn" type="button" class="primary">Start</button>
+        </div>
+        <div class="hint">答えを下の枠に書いて、候補ボタンをタップ。</div>
+        <div id="modelStatus" class="model-status">Model: not loaded</div>
+      </section>
+    </main>
+
+    <script src="../vendor/ort.min.js"></script>
+    <script src="main.js"></script>
+  </body>
+</html>
