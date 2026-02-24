@@ -1,0 +1,215 @@
+:root {
+  --bg: #fff7ea;
+  --panel: #ffffff;
+  --line: #f1d9b8;
+  --ink: #433120;
+  --accent: #ff8f42;
+  --perfect: #ff4d6d;
+  --good: #4d96ff;
+  --miss: #8e8e8e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
+  background: radial-gradient(circle at 20% 10%, #ffe8bc 0, transparent 30%), var(--bg);
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 18px;
+  border-bottom: 2px solid var(--line);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+h1 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  grid-template-areas:
+    "battle side"
+    "keyboard keyboard";
+  gap: 12px;
+  padding: 12px;
+}
+
+.battlefield,
+.sidepanel,
+.keyboard-wrap {
+  background: var(--panel);
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.battlefield {
+  grid-area: battle;
+  min-height: 360px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mission {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+#targetKey {
+  color: var(--accent);
+  font-size: 36px;
+}
+
+.feedback {
+  margin-top: 6px;
+  font-weight: 700;
+  min-height: 26px;
+}
+
+.enemy {
+  position: absolute;
+  right: 12%;
+  top: 45%;
+  font-size: 72px;
+  transition: transform 0.18s ease, filter 0.18s ease;
+}
+
+.enemy.hit {
+  transform: scale(1.2) rotate(-5deg);
+  filter: drop-shadow(0 0 10px #ff6b6b);
+}
+
+.projectiles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.projectile {
+  position: absolute;
+  left: 10%;
+  bottom: 16px;
+  font-size: 34px;
+  font-weight: 800;
+  animation: shoot 650ms ease-out forwards;
+}
+
+@keyframes shoot {
+  0% {
+    transform: translate(0, 0) scale(0.6);
+    opacity: 0.2;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(350px, -180px) scale(1.1);
+    opacity: 0;
+  }
+}
+
+.sidepanel {
+  grid-area: side;
+}
+
+.panel-block h2,
+.keyboard-wrap h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.typed-log {
+  min-height: 48px;
+  padding: 8px;
+  border-radius: 10px;
+  background: #fff8f1;
+  border: 1px dashed var(--line);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+}
+
+.legend {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.legend li {
+  margin-bottom: 6px;
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.dot.perfect {
+  background: var(--perfect);
+}
+
+.dot.good {
+  background: var(--good);
+}
+
+.dot.miss {
+  background: var(--miss);
+}
+
+.keyboard-wrap {
+  grid-area: keyboard;
+}
+
+.keyboard-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.key {
+  width: 44px;
+  height: 44px;
+  border: 2px solid #d8c2a6;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: #fff;
+  transition: all 0.12s ease;
+}
+
+.key.target {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 143, 66, 0.25);
+}
+
+.key.near {
+  background: rgba(77, 150, 255, 0.16);
+}
+
+.key.pressed {
+  transform: translateY(2px);
+  background: #ffe3e6;
+}
+
+@media (max-width: 860px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "battle"
+      "side"
+      "keyboard";
+  }
+}
