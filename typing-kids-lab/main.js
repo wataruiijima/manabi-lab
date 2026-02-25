@@ -37,6 +37,9 @@ const playerHpFillEl = document.getElementById("playerHpFill");
 const retryOverlayEl = document.getElementById("retryOverlay");
 const retryButtonEl = document.getElementById("retryButton");
 const retryScoreTextEl = document.getElementById("retryScoreText");
+const clearOverlayEl = document.getElementById("clearOverlay");
+const clearButtonEl = document.getElementById("clearButton");
+const clearScoreTextEl = document.getElementById("clearScoreText");
 const targetPanelEl = document.querySelector(".target-panel");
 
 const wordMissions = [
@@ -61,6 +64,8 @@ let perfectStreak = 0;
 let currentMission = null;
 let lastInputAt = Date.now();
 const idleHintMs = 1700;
+const clearScoreThreshold = 3000;
+let isCleared = false;
 
 const keyButtons = new Map();
 const positionMap = new Map();
@@ -217,6 +222,17 @@ function hideRetryOverlay() {
   retryOverlayEl.setAttribute("aria-hidden", "true");
 }
 
+function showClearOverlay() {
+  clearScoreTextEl.textContent = `すこあ ${score} / らうんど ${wave}`;
+  clearOverlayEl.classList.remove("hidden");
+  clearOverlayEl.setAttribute("aria-hidden", "false");
+}
+
+function hideClearOverlay() {
+  clearOverlayEl.classList.add("hidden");
+  clearOverlayEl.setAttribute("aria-hidden", "true");
+}
+
 function resetGameState() {
   targetSequence = ["A"];
   targetIndex = 0;
@@ -228,6 +244,7 @@ function resetGameState() {
   perfectStreak = 0;
   currentMission = null;
   lastInputAt = Date.now();
+  isCleared = false;
   scoreEl.textContent = "0";
   comboEl.textContent = "0";
   waveEl.textContent = "1";
@@ -237,6 +254,7 @@ function resetGameState() {
   setPlayerHp(100);
   setFeedback("", "キーを押して攻撃！");
   setNextTarget(true);
+  hideClearOverlay();
   if (sceneRef && sceneRef.resetBattle) sceneRef.resetBattle();
 }
 
@@ -763,6 +781,13 @@ function handleScore(rating, missionComplete = false) {
   scoreEl.textContent = String(score);
   comboEl.textContent = String(combo);
   perfectStreakEl.textContent = String(perfectStreak);
+
+  if (!isCleared && score >= clearScoreThreshold) {
+    isCleared = true;
+    isGameOver = true;
+    setFeedback("perfect", `くりあ！${clearScoreThreshold}てん とっぱ！`);
+    showClearOverlay();
+  }
 }
 
 document.addEventListener("keydown", (event) => {
@@ -816,11 +841,17 @@ retryButtonEl.addEventListener("click", () => {
   resetGameState();
 });
 
+clearButtonEl.addEventListener("click", () => {
+  hideClearOverlay();
+  resetGameState();
+});
+
 setInputDanger(20);
 setPlayerHp(100);
 buildKeyboard();
 setNextTarget(true);
 hideRetryOverlay();
+hideClearOverlay();
 
 setInterval(() => {
   if (!isGameOver) renderKeyboard();
