@@ -39,6 +39,15 @@ const retryButtonEl = document.getElementById("retryButton");
 const retryScoreTextEl = document.getElementById("retryScoreText");
 const targetPanelEl = document.querySelector(".target-panel");
 
+const wordMissions = [
+  { word: "GO", emoji: "🚀", label: "ごー" },
+  { word: "CAT", emoji: "🐱", label: "ねこ" },
+  { word: "DOG", emoji: "🐶", label: "いぬ" },
+  { word: "STAR", emoji: "⭐", label: "ほし" },
+  { word: "MOON", emoji: "🌙", label: "つき" },
+  { word: "APPLE", emoji: "🍎", label: "りんご" },
+];
+
 let targetSequence = ["A"];
 let targetIndex = 0;
 let score = 0;
@@ -49,6 +58,9 @@ let playerHp = 100;
 let inputDanger = 0;
 let isGameOver = false;
 let perfectStreak = 0;
+let currentMission = null;
+let lastInputAt = Date.now();
+const idleHintMs = 1700;
 
 const keyButtons = new Map();
 const positionMap = new Map();
@@ -99,25 +111,36 @@ function shouldEnableDoubleMission() {
 }
 
 function updateTargetDisplay() {
-  const joined = targetSequence.join(" ");
-  targetKeyEl.textContent = joined;
-  targetKeyEl.dataset.mode = targetSequence.length === 2 ? "double" : "single";
+  const chars = targetSequence
+    .map((char, index) => {
+      if (index < targetIndex) return `<span class="letter done">${char}</span>`;
+      if (index === targetIndex) return `<span class="letter current">${char}</span>`;
+      return `<span class="letter upcoming">${char}</span>`;
+    })
+    .join("");
 
-  if (targetSequence.length === 2) {
-    targetModeEl.textContent = `にこ みっしょん ${targetIndex + 1}/2`;
+  targetKeyEl.innerHTML = chars;
+  targetKeyEl.dataset.mode = targetSequence.length >= 2 ? "word" : "single";
+
+  if (targetSequence.length >= 2) {
+    const missionName = currentMission ? `${currentMission.label} ${currentMission.emoji}` : "ことば";
+    targetModeEl.textContent = `${missionName} ${targetIndex + 1}/${targetSequence.length}`;
   } else {
     targetModeEl.textContent = "ひとつ うつ";
   }
 }
 
+function shouldEnableWordMission() {
+  return (combo >= 4 || perfectStreak >= 2 || wave >= 2) && Math.random() < 0.52;
+}
+
 function setNextTarget(forceSingle = false) {
   const flat = rows.flat();
-  if (!forceSingle && shouldEnableDoubleMission()) {
-    let first = flat[Math.floor(Math.random() * flat.length)];
-    let second = flat[Math.floor(Math.random() * flat.length)];
-    while (second === first) second = flat[Math.floor(Math.random() * flat.length)];
-    targetSequence = [first, second];
+  if (!forceSingle && (shouldEnableWordMission() || shouldEnableDoubleMission())) {
+    currentMission = wordMissions[Math.floor(Math.random() * wordMissions.length)];
+    targetSequence = currentMission.word.split("");
   } else {
+    currentMission = null;
     targetSequence = [flat[Math.floor(Math.random() * flat.length)]];
   }
 
@@ -129,10 +152,12 @@ function setNextTarget(forceSingle = false) {
 function renderKeyboard(pressed = "") {
   const target = currentTarget();
   const helper = helperKeysOf(target);
+  const isIdle = !pressed && Date.now() - lastInputAt >= idleHintMs;
   keyButtons.forEach((el, key) => {
     el.classList.toggle("target", key === target);
     el.classList.toggle("near", helper.includes(key));
     el.classList.toggle("pressed", key === pressed);
+    el.classList.toggle("hint", key === target && isIdle);
   });
 }
 
@@ -201,6 +226,8 @@ function resetGameState() {
   typedLog = [];
   isGameOver = false;
   perfectStreak = 0;
+  currentMission = null;
+  lastInputAt = Date.now();
   scoreEl.textContent = "0";
   comboEl.textContent = "0";
   waveEl.textContent = "1";
@@ -514,6 +541,43 @@ class InvaderScene extends Phaser.Scene {
     this.showImpact(rating, damage);
   }
 
+  fireWordBonus(emoji) {
+    const badge = this.add.text(this.player.x + 24, this.player.y - 36, emoji, {
+      fontSize: "56px",
+      stroke: "#000",
+      strokeThickness: 6,
+    }).setOrigin(0.5).setAlpha(0.2).setScale(0.5);
+
+    this.tweens.add({
+      targets: badge,
+      x: this.enemy.x,
+      y: this.enemy.y - 10,
+      alpha: 1,
+      scale: 1,
+      duration: 420,
+      ease: "Back.Out",
+      onComplete: () => {
+        this.spawnImpactBurst(this.enemy.x, this.enemy.y, 0xffef77);
+        this.applyDamage(22);
+        this.attackWarning.setText(`${emoji} ぼーなす!`);
+        this.attackWarning.setAlpha(1);
+        this.tweens.add({
+          targets: this.attackWarning,
+          alpha: 0,
+          duration: 560,
+          ease: "Quad.Out",
+        });
+        this.tweens.add({
+          targets: badge,
+          alpha: 0,
+          y: badge.y - 24,
+          duration: 260,
+          onComplete: () => badge.destroy(),
+        });
+      },
+    });
+  }
+
   showImpact(rating, damage) {
     const labels = {
       perfect: `かんぺき -${damage}`,
@@ -653,13 +717,13 @@ function handleScore(rating, missionComplete = false) {
     perfectStreak += 1;
     score += 120 + combo * 4;
     combo += 1;
-    setFeedback("perfect", missionComplete ? "かんぺき！にこ せいこう！" : "かんぺき！ちょくげき！");
+    setFeedback("perfect", missionComplete ? "かんぺき！ことば せいこう！" : "かんぺき！ちょくげき！");
     sfx.perfect();
   } else if (rating === "good") {
     perfectStreak = 0;
     score += 70 + combo * 2;
     combo += 1;
-    setFeedback("good", missionComplete ? "いいね！にこ せいこう！" : "いいね！おしい！");
+    setFeedback("good", missionComplete ? "いいね！ことば せいこう！" : "いいね！おしい！");
     sfx.good();
   } else {
     perfectStreak = 0;
@@ -681,6 +745,7 @@ document.addEventListener("keydown", (event) => {
   if (!input) return;
 
   sfx.unlock();
+  lastInputAt = Date.now();
 
   const target = currentTarget();
   const rating = judge(input, target);
@@ -702,7 +767,11 @@ document.addEventListener("keydown", (event) => {
   if (sceneRef && sceneRef.fireLetter) sceneRef.fireLetter(input, rating);
 
   if (wasLastStep) {
-    handleScore(rating, targetSequence.length === 2);
+    handleScore(rating, targetSequence.length >= 2);
+    if (currentMission && sceneRef && sceneRef.fireWordBonus) {
+      setFeedback(rating, `${currentMission.word} せいこう！`);
+      sceneRef.fireWordBonus(currentMission.emoji);
+    }
     setTimeout(() => setNextTarget(), 240);
   } else {
     handleScore(rating, false);
@@ -725,3 +794,7 @@ setPlayerHp(100);
 buildKeyboard();
 setNextTarget(true);
 hideRetryOverlay();
+
+setInterval(() => {
+  if (!isGameOver) renderKeyboard();
+}, 180);

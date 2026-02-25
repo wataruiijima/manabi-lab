@@ -102,9 +102,43 @@ canvas { display: block; }
   text-shadow: 0 0 18px rgba(255, 216, 75, 0.42);
 }
 
-#targetKey[data-mode="double"] {
+#targetKey[data-mode="word"] {
   color: #ffe996;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.08em;
+}
+
+#targetKey {
+  display: inline-flex;
+  gap: 0.12em;
+  align-items: flex-end;
+}
+
+#targetKey .letter {
+  display: inline-block;
+  transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+}
+
+#targetKey .letter.done {
+  opacity: 0.45;
+  transform: scale(0.84);
+  filter: saturate(0.7);
+}
+
+#targetKey .letter.current {
+  color: #fff5a2;
+  transform: scale(1.15);
+  text-shadow: 0 0 22px rgba(255, 236, 128, 0.85);
+  animation: currentLetterPulse 0.6s ease-in-out infinite alternate;
+}
+
+#targetKey .letter.upcoming {
+  opacity: 0.8;
+  transform: translateX(2px) scale(0.92);
+}
+
+@keyframes currentLetterPulse {
+  from { transform: scale(1.1) translateY(0); }
+  to { transform: scale(1.17) translateY(-2px); }
 }
 
 #feedback {
@@ -254,6 +288,28 @@ canvas { display: block; }
 
 .key.near {
   background: linear-gradient(180deg, rgba(32, 109, 160, 0.94) 0%, rgba(16, 58, 98, 0.95) 100%);
+}
+
+
+.key.hint {
+  animation: keyHintBlink 0.56s ease-in-out infinite alternate;
+}
+
+@keyframes keyHintBlink {
+  from {
+    box-shadow:
+      0 2px 0 rgba(6, 13, 28, 0.95),
+      0 0 0 2px rgba(255, 219, 101, 0.24),
+      0 10px 18px rgba(255, 219, 101, 0.24);
+    transform: translateY(0) scale(1);
+  }
+  to {
+    box-shadow:
+      0 2px 0 rgba(6, 13, 28, 0.95),
+      0 0 0 2px rgba(255, 219, 101, 0.54),
+      0 14px 24px rgba(255, 219, 101, 0.35);
+    transform: translateY(-1px) scale(1.03);
+  }
 }
 
 .key.pressed {
