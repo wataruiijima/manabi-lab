@@ -1,215 +1,184 @@
 :root {
-  --bg: #fff7ea;
-  --panel: #ffffff;
-  --line: #f1d9b8;
-  --ink: #433120;
-  --accent: #ff8f42;
-  --perfect: #ff4d6d;
-  --good: #4d96ff;
-  --miss: #8e8e8e;
+  --fg: #dce8ff;
+  --accent: #ffd84b;
+  --perfect: #ff5fa2;
+  --good: #5fe5ff;
+  --miss: #9aa6c3;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
+html,
 body {
   margin: 0;
-  color: var(--ink);
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
   font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", sans-serif;
-  background: radial-gradient(circle at 20% 10%, #ffe8bc 0, transparent 30%), var(--bg);
+  color: var(--fg);
+  background: #060c1a;
 }
 
-.topbar {
+#gameRoot {
+  position: fixed;
+  inset: 0;
+}
+
+canvas {
+  display: block;
+}
+
+.hud-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  padding: 10px 14px;
+  z-index: 5;
+}
+
+.hud-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 18px;
-  border-bottom: 2px solid var(--line);
-  background: rgba(255, 255, 255, 0.85);
 }
 
-h1 {
+.hud-top h1 {
   margin: 0;
-  font-size: 24px;
+  font-size: 22px;
+  text-shadow: 0 0 10px rgba(130, 170, 255, 0.55);
 }
 
-.layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  grid-template-areas:
-    "battle side"
-    "keyboard keyboard";
-  gap: 12px;
-  padding: 12px;
-}
-
-.battlefield,
-.sidepanel,
-.keyboard-wrap {
-  background: var(--panel);
-  border: 2px solid var(--line);
-  border-radius: 16px;
-  padding: 12px;
-}
-
-.battlefield {
-  grid-area: battle;
-  min-height: 360px;
-  position: relative;
-  overflow: hidden;
-}
-
-.mission {
-  font-size: 24px;
+.stats {
+  display: flex;
+  gap: 14px;
   font-weight: 700;
+}
+
+.stats b { color: #fff; }
+
+.mission-line {
+  margin-top: 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 700;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
 }
 
 #targetKey {
   color: var(--accent);
-  font-size: 36px;
+  font-size: 38px;
+  line-height: 1;
 }
 
-.feedback {
-  margin-top: 6px;
+#feedback.perfect { color: var(--perfect); }
+#feedback.good { color: var(--good); }
+#feedback.miss { color: var(--miss); }
+
+.bottom-ui {
+  align-self: end;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+
+.log-inline {
+  width: min(860px, 96vw);
   font-weight: 700;
-  min-height: 26px;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
 }
 
-.enemy {
-  position: absolute;
-  right: 12%;
-  top: 45%;
-  font-size: 72px;
-  transition: transform 0.18s ease, filter 0.18s ease;
+.keyboard-inline {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  pointer-events: auto;
 }
 
-.enemy.hit {
-  transform: scale(1.2) rotate(-5deg);
-  filter: drop-shadow(0 0 10px #ff6b6b);
+.keyboard-shell {
+  width: min(860px, 96vw);
+  padding: 14px 16px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(165, 193, 255, 0.5);
+  background:
+    linear-gradient(180deg, rgba(36, 56, 96, 0.82) 0%, rgba(10, 20, 44, 0.88) 100%);
+  box-shadow:
+    0 14px 26px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.35);
 }
 
-.projectiles {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.projectile {
-  position: absolute;
-  left: 10%;
-  bottom: 16px;
-  font-size: 34px;
-  font-weight: 800;
-  animation: shoot 650ms ease-out forwards;
-}
-
-@keyframes shoot {
-  0% {
-    transform: translate(0, 0) scale(0.6);
-    opacity: 0.2;
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    transform: translate(350px, -180px) scale(1.1);
-    opacity: 0;
-  }
-}
-
-.sidepanel {
-  grid-area: side;
-}
-
-.panel-block h2,
-.keyboard-wrap h2 {
-  margin: 0 0 8px;
-  font-size: 16px;
-}
-
-.typed-log {
-  min-height: 48px;
-  padding: 8px;
-  border-radius: 10px;
-  background: #fff8f1;
-  border: 1px dashed var(--line);
-  font-size: 18px;
-  letter-spacing: 0.08em;
-}
-
-.legend {
-  margin: 0;
-  padding-left: 0;
-  list-style: none;
-}
-
-.legend li {
-  margin-bottom: 6px;
-}
-
-.dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  margin-right: 6px;
-}
-
-.dot.perfect {
-  background: var(--perfect);
-}
-
-.dot.good {
-  background: var(--good);
-}
-
-.dot.miss {
-  background: var(--miss);
-}
-
-.keyboard-wrap {
-  grid-area: keyboard;
+.keyboard {
+  width: 100%;
+  display: grid;
+  gap: 6px;
 }
 
 .keyboard-row {
   display: flex;
-  gap: 6px;
-  margin-bottom: 6px;
+  gap: 8px;
+  justify-content: center;
+}
+
+.keyboard-row:nth-child(2) {
+  padding-left: 20px;
+}
+
+.keyboard-row:nth-child(3) {
+  padding-left: 42px;
 }
 
 .key {
   width: 44px;
   height: 44px;
-  border: 2px solid #d8c2a6;
-  border-radius: 8px;
   display: grid;
   place-items: center;
+  border-radius: 9px;
+  border: 1px solid rgba(172, 201, 255, 0.55);
+  background:
+    linear-gradient(180deg, rgba(42, 70, 125, 0.92) 0%, rgba(17, 36, 76, 0.95) 100%);
   font-weight: 800;
-  background: #fff;
+  color: #e8f0ff;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
+  box-shadow:
+    0 2px 0 rgba(6, 13, 28, 0.95),
+    0 6px 12px rgba(1, 5, 14, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: all 0.12s ease;
 }
 
 .key.target {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(255, 143, 66, 0.25);
+  border-color: #f5d03e;
+  box-shadow:
+    0 2px 0 rgba(6, 13, 28, 0.95),
+    0 0 0 2px rgba(245, 208, 62, 0.28),
+    0 10px 16px rgba(245, 208, 62, 0.2);
+  background: linear-gradient(180deg, rgba(139, 117, 30, 0.96) 0%, rgba(94, 74, 15, 0.96) 100%);
 }
 
 .key.near {
-  background: rgba(77, 150, 255, 0.16);
+  background: linear-gradient(180deg, rgba(32, 109, 160, 0.94) 0%, rgba(16, 58, 98, 0.95) 100%);
 }
 
 .key.pressed {
-  transform: translateY(2px);
-  background: #ffe3e6;
+  transform: translateY(2px) scale(0.96);
+  background: linear-gradient(180deg, rgba(122, 44, 95, 0.94) 0%, rgba(78, 24, 58, 0.96) 100%);
+  box-shadow:
+    0 1px 0 rgba(6, 13, 28, 0.95),
+    0 3px 8px rgba(1, 5, 14, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-@media (max-width: 860px) {
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "battle"
-      "side"
-      "keyboard";
-  }
+@media (max-width: 900px) {
+  .hud-top h1 { font-size: 18px; }
+  #targetKey { font-size: 30px; }
+  .keyboard-shell { padding: 10px 10px 8px; }
+  .keyboard-row { gap: 5px; }
+  .keyboard-row:nth-child(2) { padding-left: 12px; }
+  .keyboard-row:nth-child(3) { padding-left: 24px; }
+  .key { width: 34px; height: 34px; font-size: 12px; }
 }

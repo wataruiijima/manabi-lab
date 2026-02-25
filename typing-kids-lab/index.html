@@ -3,47 +3,39 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>キーぼうけんラボ</title>
+    <title>キーインベーダー・ラボ Phaser版</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header class="topbar">
-      <h1>キーぼうけんラボ</h1>
-      <div class="scoreboard">
-        <div>Score: <span id="score">0</span></div>
-        <div>Combo: <span id="combo">0</span></div>
-      </div>
-    </header>
+    <div id="gameRoot"></div>
 
-    <main class="layout">
-      <section class="battlefield">
-        <div class="mission">おだい: <span id="targetKey">A</span> をねらおう！</div>
-        <div id="feedback" class="feedback">START!</div>
-        <div id="enemy" class="enemy">👾</div>
-        <div id="projectiles" class="projectiles" aria-live="polite"></div>
+    <div class="hud-layer">
+      <header class="hud-top">
+        <h1>キーインベーダー・ラボ</h1>
+        <div class="stats">
+          <span>SCORE <b id="score">0</b></span>
+          <span>COMBO <b id="combo">0</b></span>
+          <span>WAVE <b id="wave">1</b></span>
+        </div>
+      </header>
+
+      <section class="mission-line">
+        <span>TARGET</span>
+        <strong id="targetKey">A</strong>
+        <span id="feedback">キーを押して攻撃！</span>
       </section>
 
-      <section class="sidepanel">
-        <div class="panel-block">
-          <h2>さいきんの入力</h2>
-          <div id="typedLog" class="typed-log">-</div>
-        </div>
-        <div class="panel-block">
-          <h2>ステータス</h2>
-          <ul class="legend">
-            <li><span class="dot perfect"></span> Perfect（お題どおり）</li>
-            <li><span class="dot good"></span> Good（となりのキー）</li>
-            <li><span class="dot miss"></span> Miss（それ以外）</li>
-          </ul>
+      <section class="bottom-ui">
+        <div class="log-inline">Input: <span id="typedLog">-</span></div>
+        <div class="keyboard-inline">
+          <div class="keyboard-shell">
+            <div id="keyboard" class="keyboard"></div>
+          </div>
         </div>
       </section>
+    </div>
 
-      <section class="keyboard-wrap">
-        <h2>キーボード</h2>
-        <div id="keyboard" class="keyboard"></div>
-      </section>
-    </main>
-
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.min.js"></script>
     <script src="main.js"></script>
   </body>
 </html>
