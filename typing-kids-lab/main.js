@@ -13,6 +13,9 @@ const waveEl = document.getElementById("wave");
 const keyboardEl = document.getElementById("keyboard");
 const inputGaugeFillEl = document.getElementById("inputGaugeFill");
 const playerHpFillEl = document.getElementById("playerHpFill");
+const retryOverlayEl = document.getElementById("retryOverlay");
+const retryButtonEl = document.getElementById("retryButton");
+const retryScoreTextEl = document.getElementById("retryScoreText");
 
 let target = "A";
 let score = 0;
@@ -21,6 +24,7 @@ let wave = 1;
 let typedLog = [];
 let playerHp = 100;
 let inputDanger = 0;
+let isGameOver = false;
 
 const keyButtons = new Map();
 const positionMap = new Map();
@@ -110,8 +114,45 @@ function setPlayerHp(next) {
 }
 
 function consumeDangerByRating(rating) {
-  const reduceMap = { perfect: 34, good: 22, miss: 8 };
-  setInputDanger(inputDanger - (reduceMap[rating] || 0));
+  const deltaMap = { perfect: -34, good: -22, miss: 13 };
+  setInputDanger(inputDanger + (deltaMap[rating] || 0));
+}
+
+function showRetryOverlay() {
+  retryScoreTextEl.textContent = `SCORE ${score} / WAVE ${wave}`;
+  retryOverlayEl.classList.remove("hidden");
+  retryOverlayEl.setAttribute("aria-hidden", "false");
+}
+
+function hideRetryOverlay() {
+  retryOverlayEl.classList.add("hidden");
+  retryOverlayEl.setAttribute("aria-hidden", "true");
+}
+
+function resetGameState() {
+  target = "A";
+  score = 0;
+  combo = 0;
+  wave = 1;
+  typedLog = [];
+  isGameOver = false;
+  scoreEl.textContent = "0";
+  comboEl.textContent = "0";
+  waveEl.textContent = "1";
+  typedLogEl.textContent = "-";
+  setInputDanger(20);
+  setPlayerHp(100);
+  setFeedback("", "キーを押して攻撃！");
+  setNextTarget();
+  if (sceneRef && sceneRef.resetBattle) sceneRef.resetBattle();
+}
+
+function triggerGameOver() {
+  if (isGameOver) return;
+  isGameOver = true;
+  setFeedback("miss", "撃墜された…！RETRYで再挑戦");
+  if (sceneRef && sceneRef.playGameOverEffect) sceneRef.playGameOverEffect();
+  showRetryOverlay();
 }
 
 class Sfx {
@@ -175,6 +216,14 @@ class InvaderScene extends Phaser.Scene {
 
     this.cameras.main.setBackgroundColor("#060c1a");
     this.hitStopTimeout = null;
+    this.enemyPoints = [
+      { x: 0.78, y: 0.28 },
+      { x: 0.62, y: 0.22 },
+      { x: 0.76, y: 0.4 },
+      { x: 0.58, y: 0.35 },
+      { x: 0.72, y: 0.18 },
+    ];
+    this.enemyPointIndex = 0;
 
     this.starA = this.add.tileSprite(0, 0, width, height, this.makeStarTexture(0x4d6aa8, 2)).setOrigin(0);
     this.starB = this.add.tileSprite(0, 0, width, height, this.makeStarTexture(0x84a1dd, 2)).setOrigin(0);
@@ -183,6 +232,23 @@ class InvaderScene extends Phaser.Scene {
     this.enemy = this.add.text(width * 0.78, height * 0.28, "👾", {
       fontSize: `${Math.max(84, Math.floor(width * 0.08))}px`,
     }).setOrigin(0.5);
+
+    this.enemyIndicator = this.add.text(this.enemy.x, this.enemy.y + 72, "▼ ATTACKER", {
+      fontFamily: "monospace",
+      fontSize: "20px",
+      color: "#ff88ac",
+      stroke: "#2a0714",
+      strokeThickness: 6,
+    }).setOrigin(0.5);
+
+    this.tweens.add({
+      targets: this.enemyIndicator,
+      y: this.enemyIndicator.y + 10,
+      duration: 300,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut",
+    });
 
     this.player = this.add.text(width * 0.14, height * 0.8, "🛸", {
       fontSize: `${Math.max(56, Math.floor(width * 0.05))}px`,
@@ -217,6 +283,7 @@ class InvaderScene extends Phaser.Scene {
     this.scale.on("resize", this.resizeHandler);
     this.enemyHp = 100;
     sceneRef = this;
+    this.moveEnemyToNewSpot(false);
   }
 
   makeStarTexture(color, size) {
@@ -248,6 +315,41 @@ class InvaderScene extends Phaser.Scene {
     return key;
   }
 
+  moveEnemyToNewSpot(animate = true) {
+    let nextIndex = Phaser.Math.Between(0, this.enemyPoints.length - 1);
+    if (nextIndex === this.enemyPointIndex) nextIndex = (nextIndex + 1) % this.enemyPoints.length;
+    this.enemyPointIndex = nextIndex;
+
+    const { width, height } = this.scale;
+    const p = this.enemyPoints[nextIndex];
+    const nx = width * p.x;
+    const ny = height * p.y;
+
+    if (!animate) {
+      this.enemy.setPosition(nx, ny);
+      this.syncEnemyHud();
+      return;
+    }
+
+    this.tweens.add({
+      targets: this.enemy,
+      x: nx,
+      y: ny,
+      duration: 320,
+      ease: "Cubic.Out",
+      onUpdate: () => this.syncEnemyHud(),
+      onComplete: () => this.syncEnemyHud(),
+    });
+  }
+
+  syncEnemyHud() {
+    this.enemyName.setPosition(this.enemy.x, this.enemy.y - 70);
+    this.hpBg.setPosition(this.enemy.x, this.enemy.y - 34);
+    this.hpBar.setPosition(this.hpBg.x - this.hpBg.width / 2, this.hpBg.y);
+    this.enemyIndicator.setPosition(this.enemy.x, this.enemy.y + 72);
+    this.impactText.setPosition(this.enemy.x, this.enemy.y - 116);
+  }
+
   hitStop(target, mode = "enemy") {
     if (this.hitStopTimeout) clearTimeout(this.hitStopTimeout);
 
@@ -266,6 +368,21 @@ class InvaderScene extends Phaser.Scene {
       this.tweens.timeScale = 1;
       this.hitStopTimeout = null;
     }, mode === "enemy" ? 85 : 120);
+  }
+
+  playGameOverEffect() {
+    this.cameras.main.flash(100, 255, 70, 95, true);
+    this.hitStop(this.player, "player");
+    this.cameras.main.shake(260, 0.02);
+    this.attackWarning.setText("SYSTEM DOWN");
+    this.attackWarning.setAlpha(1);
+    this.tweens.add({
+      targets: this.attackWarning,
+      alpha: 0,
+      duration: 900,
+      ease: "Quad.Out",
+    });
+    this.spawnImpactBurst(this.player.x + 10, this.player.y, 0xff4a67);
   }
 
   spawnImpactBurst(x, y, color = 0xff77aa) {
@@ -360,11 +477,13 @@ class InvaderScene extends Phaser.Scene {
       this.hpBar.width = this.hpBg.width;
       this.hpBar.fillColor = 0x44dd77;
       this.spawnImpactBurst(this.enemy.x, this.enemy.y, 0xffef77);
-      setFeedback("perfect", "WAVE CLEAR! 次の敵が出現！");
+      this.moveEnemyToNewSpot();
+      setFeedback("perfect", "WAVE CLEAR! 次の敵が転移！");
     }
   }
 
   enemyAttack() {
+    if (isGameOver) return;
     const orb = this.add.circle(this.enemy.x - 18, this.enemy.y + 10, 12, 0xff6485, 1);
     this.tweens.add({
       targets: orb,
@@ -387,15 +506,31 @@ class InvaderScene extends Phaser.Scene {
         });
         setPlayerHp(playerHp - 18);
         sfx.playerHit();
-        setFeedback("miss", "敵の攻撃！入力してゲージを下げよう");
+        if (playerHp <= 0) {
+          triggerGameOver();
+        } else {
+          setFeedback("miss", "敵の攻撃！入力してゲージを下げよう");
+        }
       },
     });
+  }
+
+  resetBattle() {
+    this.enemyHp = 100;
+    this.hpBar.width = this.hpBg.width;
+    this.hpBar.fillColor = 0x44dd77;
+    this.enemyPointIndex = 0;
+    this.moveEnemyToNewSpot(false);
+    this.attackWarning.setAlpha(0);
+    this.impactText.setAlpha(0);
   }
 
   update(_, delta) {
     this.starA.tilePositionY -= 0.05 * delta;
     this.starB.tilePositionY -= 0.1 * delta;
     this.grid.tilePositionY -= 0.04 * delta;
+
+    if (isGameOver) return;
 
     setInputDanger(inputDanger + delta * 0.008);
     if (inputDanger >= 100) {
@@ -409,12 +544,13 @@ class InvaderScene extends Phaser.Scene {
     this.starA.setSize(width, height);
     this.starB.setSize(width, height);
     this.grid.setSize(width, height);
-    this.enemy.setPosition(width * 0.78, height * 0.28);
     this.player.setPosition(width * 0.14, height * 0.8);
-    this.enemyName.setPosition(width * 0.78, height * 0.18);
-    this.hpBg.setPosition(width * 0.78, height * 0.22).setSize(width * 0.24, 16);
-    this.hpBar.setPosition(this.hpBg.x - this.hpBg.width / 2, this.hpBg.y).setSize(this.hpBg.width * (this.enemyHp / 100), 12);
-    this.impactText.setPosition(width * 0.78, height * 0.11);
+    this.hpBg.setSize(width * 0.24, 16);
+    this.hpBar.setSize(this.hpBg.width * (this.enemyHp / 100), 12);
+
+    const p = this.enemyPoints[this.enemyPointIndex];
+    this.enemy.setPosition(width * p.x, height * p.y);
+    this.syncEnemyHud();
     this.attackWarning.setPosition(width * 0.5, height * 0.48);
   }
 }
@@ -446,7 +582,7 @@ function handleScore(rating) {
   } else {
     score += 10;
     combo = 0;
-    setFeedback("miss", "Miss! でも経験値+1");
+    setFeedback("miss", "Miss! 敵のゲージが上昇");
     sfx.miss();
   }
 
@@ -455,6 +591,8 @@ function handleScore(rating) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (isGameOver) return;
+
   const input = normalizeInputKey(event);
   if (!input) return;
 
@@ -472,7 +610,13 @@ document.addEventListener("keydown", (event) => {
   setTimeout(() => renderKeyboard(), 120);
 });
 
+retryButtonEl.addEventListener("click", () => {
+  hideRetryOverlay();
+  resetGameState();
+});
+
 setInputDanger(20);
 setPlayerHp(100);
 buildKeyboard();
 setNextTarget();
+hideRetryOverlay();
