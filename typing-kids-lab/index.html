@@ -21,15 +21,16 @@
     <div class="hud-layer">
       <header class="hud-top">
         <h1>キーインベーダー・ラボ</h1>
-        <div class="stats">
-          <span>SCORE <b id="score">0</b></span>
-          <span>COMBO <b id="combo">0</b></span>
-          <span>WAVE <b id="wave">1</b></span>
+        <div class="stats-grid">
+          <span class="stat-chip">SCORE <b id="score">0</b></span>
+          <span class="stat-chip">COMBO <b id="combo">0</b></span>
+          <span class="stat-chip">PERFECT STREAK <b id="perfectStreak">0</b></span>
+          <span class="stat-chip">WAVE <b id="wave">1</b></span>
         </div>
       </header>
 
-      <section class="mission-line">
-        <span>TARGET</span>
+      <section class="target-panel" aria-live="polite">
+        <p id="targetMode" class="target-mode">SINGLE SHOT</p>
         <strong id="targetKey">A</strong>
         <span id="feedback">キーを押して攻撃！</span>
       </section>

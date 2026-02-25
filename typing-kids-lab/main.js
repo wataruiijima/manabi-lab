@@ -4,12 +4,33 @@ const rows = [
   ["Z", "X", "C", "V", "B", "N", "M"],
 ];
 
+const similarKeyGroups = [
+  ["O", "D", "Q"],
+  ["P", "R", "B"],
+  ["I", "L", "J"],
+  ["U", "V", "Y"],
+  ["C", "G"],
+  ["M", "N"],
+  ["S", "Z"],
+  ["K", "X"],
+];
+
+const similarKeyMap = new Map();
+similarKeyGroups.forEach((group) => {
+  group.forEach((key) => {
+    const siblings = group.filter((candidate) => candidate !== key);
+    similarKeyMap.set(key, siblings);
+  });
+});
+
 const targetKeyEl = document.getElementById("targetKey");
+const targetModeEl = document.getElementById("targetMode");
 const feedbackEl = document.getElementById("feedback");
 const typedLogEl = document.getElementById("typedLog");
 const scoreEl = document.getElementById("score");
 const comboEl = document.getElementById("combo");
 const waveEl = document.getElementById("wave");
+const perfectStreakEl = document.getElementById("perfectStreak");
 const keyboardEl = document.getElementById("keyboard");
 const inputGaugeFillEl = document.getElementById("inputGaugeFill");
 const playerHpFillEl = document.getElementById("playerHpFill");
@@ -17,7 +38,8 @@ const retryOverlayEl = document.getElementById("retryOverlay");
 const retryButtonEl = document.getElementById("retryButton");
 const retryScoreTextEl = document.getElementById("retryScoreText");
 
-let target = "A";
+let targetSequence = ["A"];
+let targetIndex = 0;
 let score = 0;
 let combo = 0;
 let wave = 1;
@@ -25,10 +47,15 @@ let typedLog = [];
 let playerHp = 100;
 let inputDanger = 0;
 let isGameOver = false;
+let perfectStreak = 0;
 
 const keyButtons = new Map();
 const positionMap = new Map();
 rows.forEach((row, r) => row.forEach((key, c) => positionMap.set(key, { r, c })));
+
+function currentTarget() {
+  return targetSequence[targetIndex];
+}
 
 function buildKeyboard() {
   rows.forEach((row) => {
@@ -62,18 +89,48 @@ function neighborsOf(key) {
   return list;
 }
 
-function setNextTarget() {
+function helperKeysOf(key) {
+  return [...neighborsOf(key), ...(similarKeyMap.get(key) || [])];
+}
+
+function shouldEnableDoubleMission() {
+  return (combo >= 6 || perfectStreak >= 3) && Math.random() < 0.38;
+}
+
+function updateTargetDisplay() {
+  const joined = targetSequence.join(" ");
+  targetKeyEl.textContent = joined;
+  targetKeyEl.dataset.mode = targetSequence.length === 2 ? "double" : "single";
+
+  if (targetSequence.length === 2) {
+    targetModeEl.textContent = `2KEY MISSION ${targetIndex + 1}/2`;
+  } else {
+    targetModeEl.textContent = "SINGLE SHOT";
+  }
+}
+
+function setNextTarget(forceSingle = false) {
   const flat = rows.flat();
-  target = flat[Math.floor(Math.random() * flat.length)];
-  targetKeyEl.textContent = target;
+  if (!forceSingle && shouldEnableDoubleMission()) {
+    let first = flat[Math.floor(Math.random() * flat.length)];
+    let second = flat[Math.floor(Math.random() * flat.length)];
+    while (second === first) second = flat[Math.floor(Math.random() * flat.length)];
+    targetSequence = [first, second];
+  } else {
+    targetSequence = [flat[Math.floor(Math.random() * flat.length)]];
+  }
+
+  targetIndex = 0;
+  updateTargetDisplay();
   renderKeyboard();
 }
 
 function renderKeyboard(pressed = "") {
-  const near = neighborsOf(target);
+  const target = currentTarget();
+  const helper = helperKeysOf(target);
   keyButtons.forEach((el, key) => {
     el.classList.toggle("target", key === target);
-    el.classList.toggle("near", near.includes(key));
+    el.classList.toggle("near", helper.includes(key));
     el.classList.toggle("pressed", key === pressed);
   });
 }
@@ -85,10 +142,10 @@ function normalizeInputKey(event) {
   return /^[A-Z]$/.test(key) ? key : "";
 }
 
-function judge(input) {
-  const near = neighborsOf(target);
+function judge(input, target) {
+  const helper = helperKeysOf(target);
   if (input === target) return "perfect";
-  if (near.includes(input)) return "good";
+  if (helper.includes(input)) return "good";
   return "miss";
 }
 
@@ -130,20 +187,23 @@ function hideRetryOverlay() {
 }
 
 function resetGameState() {
-  target = "A";
+  targetSequence = ["A"];
+  targetIndex = 0;
   score = 0;
   combo = 0;
   wave = 1;
   typedLog = [];
   isGameOver = false;
+  perfectStreak = 0;
   scoreEl.textContent = "0";
   comboEl.textContent = "0";
   waveEl.textContent = "1";
+  perfectStreakEl.textContent = "0";
   typedLogEl.textContent = "-";
   setInputDanger(20);
   setPlayerHp(100);
   setFeedback("", "キーを押して攻撃！");
-  setNextTarget();
+  setNextTarget(true);
   if (sceneRef && sceneRef.resetBattle) sceneRef.resetBattle();
 }
 
@@ -568,18 +628,21 @@ new Phaser.Game({
   },
 });
 
-function handleScore(rating) {
+function handleScore(rating, missionComplete = false) {
   if (rating === "perfect") {
+    perfectStreak += 1;
     score += 120 + combo * 4;
     combo += 1;
-    setFeedback("perfect", "Perfect! 直撃！");
+    setFeedback("perfect", missionComplete ? "Perfect! 2KEY突破！" : "Perfect! 直撃！");
     sfx.perfect();
   } else if (rating === "good") {
+    perfectStreak = 0;
     score += 70 + combo * 2;
     combo += 1;
-    setFeedback("good", "Good! かすった！");
+    setFeedback("good", missionComplete ? "Good! 2KEY成功！" : "Good! かすった！");
     sfx.good();
   } else {
+    perfectStreak = 0;
     score += 10;
     combo = 0;
     setFeedback("miss", "Miss! 敵のゲージが上昇");
@@ -588,6 +651,7 @@ function handleScore(rating) {
 
   scoreEl.textContent = String(score);
   comboEl.textContent = String(combo);
+  perfectStreakEl.textContent = String(perfectStreak);
 }
 
 document.addEventListener("keydown", (event) => {
@@ -598,15 +662,36 @@ document.addEventListener("keydown", (event) => {
 
   sfx.unlock();
 
-  const rating = judge(input);
+  const target = currentTarget();
+  const rating = judge(input, target);
   updateLog(input);
   renderKeyboard(input);
 
   consumeDangerByRating(rating);
-  handleScore(rating);
 
+  if (rating === "miss") {
+    handleScore(rating, false);
+    if (sceneRef && sceneRef.fireLetter) sceneRef.fireLetter(input, rating);
+    targetIndex = 0;
+    updateTargetDisplay();
+    setTimeout(() => renderKeyboard(), 120);
+    return;
+  }
+
+  const wasLastStep = targetIndex === targetSequence.length - 1;
   if (sceneRef && sceneRef.fireLetter) sceneRef.fireLetter(input, rating);
-  if (rating !== "miss") setTimeout(setNextTarget, 220);
+
+  if (wasLastStep) {
+    handleScore(rating, targetSequence.length === 2);
+    setTimeout(() => setNextTarget(), 240);
+  } else {
+    handleScore(rating, false);
+    targetIndex += 1;
+    updateTargetDisplay();
+    setFeedback(rating, "次のキーを続けて入力！");
+    renderKeyboard(input);
+  }
+
   setTimeout(() => renderKeyboard(), 120);
 });
 
@@ -618,5 +703,5 @@ retryButtonEl.addEventListener("click", () => {
 setInputDanger(20);
 setPlayerHp(100);
 buildKeyboard();
-setNextTarget();
+setNextTarget(true);
 hideRetryOverlay();
