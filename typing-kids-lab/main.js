@@ -55,7 +55,7 @@ let targetSequence = ["A"];
 let targetIndex = 0;
 let score = 0;
 let combo = 0;
-let wave = 1;
+let defeatedCount = 0;
 let typedLog = [];
 let playerHp = 100;
 let inputDanger = 0;
@@ -111,8 +111,11 @@ function helperKeysOf(key) {
   return [...neighborsOf(key), ...(similarKeyMap.get(key) || [])];
 }
 
-function shouldEnableDoubleMission() {
-  return (combo >= 6 || perfectStreak >= 3) && Math.random() < 0.38;
+function missionLengthByCombo() {
+  if (combo >= 24 || perfectStreak >= 10) return 4;
+  if (combo >= 14 || perfectStreak >= 6) return 3;
+  if (combo >= 7 || perfectStreak >= 3) return 2;
+  return 1;
 }
 
 function updateTargetDisplay() {
@@ -135,18 +138,23 @@ function updateTargetDisplay() {
   }
 }
 
-function shouldEnableWordMission() {
-  return (combo >= 4 || perfectStreak >= 2 || wave >= 2) && Math.random() < 0.52;
-}
-
 function setNextTarget(forceSingle = false) {
   const flat = rows.flat();
-  if (!forceSingle && (shouldEnableWordMission() || shouldEnableDoubleMission())) {
-    currentMission = wordMissions[Math.floor(Math.random() * wordMissions.length)];
-    targetSequence = currentMission.word.split("");
-  } else {
+  if (forceSingle) {
     currentMission = null;
     targetSequence = [flat[Math.floor(Math.random() * flat.length)]];
+  } else {
+    const unlockedLength = missionLengthByCombo();
+    const pool = wordMissions.filter((mission) => mission.word.length <= unlockedLength);
+    const shouldUseMission = unlockedLength >= 2 && Math.random() < 0.62;
+
+    if (shouldUseMission && pool.length > 0) {
+      currentMission = pool[Math.floor(Math.random() * pool.length)];
+      targetSequence = currentMission.word.split("");
+    } else {
+      currentMission = null;
+      targetSequence = [flat[Math.floor(Math.random() * flat.length)]];
+    }
   }
 
   targetIndex = 0;
@@ -157,12 +165,19 @@ function setNextTarget(forceSingle = false) {
 function renderKeyboard(pressed = "") {
   const target = currentTarget();
   const helper = helperKeysOf(target);
-  const isIdle = !pressed && Date.now() - lastInputAt >= idleHintMs;
+  const idleElapsed = Date.now() - lastInputAt;
+  const isIdle = !pressed && idleElapsed >= idleHintMs;
+  const hintStage = !pressed ? Phaser.Math.Clamp((idleElapsed - idleHintMs) / 2100, 0, 1) : 0;
   keyButtons.forEach((el, key) => {
     el.classList.toggle("target", key === target);
     el.classList.toggle("near", helper.includes(key));
     el.classList.toggle("pressed", key === pressed);
     el.classList.toggle("hint", key === target && isIdle);
+    if (key === target && isIdle) {
+      el.style.setProperty("--hint-stage", hintStage.toFixed(2));
+    } else {
+      el.style.removeProperty("--hint-stage");
+    }
   });
 }
 
@@ -190,10 +205,11 @@ function setFeedback(rating, text) {
   feedbackEl.className = rating ? rating : "";
   feedbackEl.textContent = text;
   feedbackEl.classList.remove("pulse");
-  targetPanelEl.classList.remove("flash");
+  targetPanelEl.classList.remove("flash", "flash-perfect", "flash-good", "flash-miss");
   void feedbackEl.offsetWidth;
   feedbackEl.classList.add("pulse");
   targetPanelEl.classList.add("flash");
+  if (rating) targetPanelEl.classList.add(`flash-${rating}`);
 }
 
 function setInputDanger(next) {
@@ -212,7 +228,7 @@ function consumeDangerByRating(rating) {
 }
 
 function showRetryOverlay() {
-  retryScoreTextEl.textContent = `すこあ ${score} / らうんど ${wave}`;
+  retryScoreTextEl.textContent = `すこあ ${score} / たおしたかず ${defeatedCount}`;
   retryOverlayEl.classList.remove("hidden");
   retryOverlayEl.setAttribute("aria-hidden", "false");
 }
@@ -223,7 +239,7 @@ function hideRetryOverlay() {
 }
 
 function showClearOverlay() {
-  clearScoreTextEl.textContent = `すこあ ${score} / らうんど ${wave}`;
+  clearScoreTextEl.textContent = `すこあ ${score} / たおしたかず ${defeatedCount}`;
   clearOverlayEl.classList.remove("hidden");
   clearOverlayEl.setAttribute("aria-hidden", "false");
 }
@@ -238,7 +254,7 @@ function resetGameState() {
   targetIndex = 0;
   score = 0;
   combo = 0;
-  wave = 1;
+  defeatedCount = 0;
   typedLog = [];
   isGameOver = false;
   perfectStreak = 0;
@@ -247,7 +263,7 @@ function resetGameState() {
   isCleared = false;
   scoreEl.textContent = "0";
   comboEl.textContent = "0";
-  waveEl.textContent = "1";
+  waveEl.textContent = "0";
   perfectStreakEl.textContent = "0";
   typedLogEl.textContent = "-";
   setInputDanger(20);
@@ -527,6 +543,15 @@ class InvaderScene extends Phaser.Scene {
     this.spawnImpactBurst(this.player.x + 10, this.player.y, 0xff4a67);
   }
 
+  playAttackFlash(rating) {
+    const tint = rating === "perfect" ? [70, 255, 180] : [90, 220, 255];
+    this.cameras.main.flash(80, tint[0], tint[1], tint[2], true);
+  }
+
+  playPlayerHitFlash() {
+    this.cameras.main.flash(120, 255, 72, 92, true);
+  }
+
   spawnImpactBurst(x, y, color = 0xff77aa) {
     for (let i = 0; i < 8; i += 1) {
       const dot = this.add.circle(x, y, Phaser.Math.Between(3, 6), color, 0.95);
@@ -547,7 +572,7 @@ class InvaderScene extends Phaser.Scene {
 
   fireLetter(letter, rating) {
     const { width, height } = this.scale;
-    const colors = { perfect: "#ff5fa2", good: "#5fe5ff", miss: "#a6b2cb" };
+    const colors = { perfect: "#61ffb6", good: "#5fe5ff", miss: "#a6b2cb" };
     const damageMap = { perfect: 28, good: 16, miss: 0 };
 
     const bullet = this.add.text(width * 0.18, height * 0.8, letter, {
@@ -572,7 +597,8 @@ class InvaderScene extends Phaser.Scene {
     const damage = damageMap[rating];
     if (damage > 0) {
       this.hitStop(this.enemy, "enemy");
-      this.spawnImpactBurst(this.enemy.x - 8, this.enemy.y + 12, rating === "perfect" ? 0xff5fa2 : 0x5fe5ff);
+      this.spawnImpactBurst(this.enemy.x - 8, this.enemy.y + 12, rating === "perfect" ? 0x61ffb6 : 0x5fe5ff);
+      this.playAttackFlash(rating);
       this.applyDamage(damage);
     }
 
@@ -622,7 +648,7 @@ class InvaderScene extends Phaser.Scene {
       good: `いいね -${damage}`,
       miss: "ざんねん +0",
     };
-    const colors = { perfect: "#ff5fa2", good: "#5fe5ff", miss: "#a6b2cb" };
+    const colors = { perfect: "#61ffb6", good: "#5fe5ff", miss: "#a6b2cb" };
 
     this.impactText.setText(labels[rating]);
     this.impactText.setColor(colors[rating]);
@@ -650,8 +676,8 @@ class InvaderScene extends Phaser.Scene {
     this.hpBar.fillColor = hpColor;
 
     if (this.enemyHp === 0) {
-      wave += 1;
-      waveEl.textContent = String(wave);
+      defeatedCount += 1;
+      waveEl.textContent = String(defeatedCount);
       this.enemyMonsterIndex = (this.enemyMonsterIndex + 1) % this.enemyMonsters.length;
       this.enemy.setText(this.enemyMonsters[this.enemyMonsterIndex]);
       this.enemyName.setText(`てき: ${this.enemyLabels[this.enemyMonsterIndex]}`);
@@ -660,7 +686,7 @@ class InvaderScene extends Phaser.Scene {
       this.hpBar.fillColor = 0x44dd77;
       this.spawnImpactBurst(this.enemy.x, this.enemy.y, 0xffef77);
       this.moveEnemyToNewSpot();
-      setFeedback("perfect", "らうんどくりあ！つぎのてき とうじょう！");
+      setFeedback("perfect", "てきをげきは！つぎのてき とうじょう！");
     }
   }
 
@@ -677,7 +703,8 @@ class InvaderScene extends Phaser.Scene {
       onComplete: () => {
         orb.destroy();
         this.hitStop(this.player, "player");
-        this.spawnImpactBurst(this.player.x + 12, this.player.y - 6, 0xff6485);
+        this.spawnImpactBurst(this.player.x + 12, this.player.y - 6, 0xff4f6d);
+        this.playPlayerHitFlash();
         this.attackWarning.setText("だめーじ！");
         this.attackWarning.setAlpha(1);
         this.tweens.add({
