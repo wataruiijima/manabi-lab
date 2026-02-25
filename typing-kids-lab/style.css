@@ -24,16 +24,14 @@ body {
   inset: 0;
 }
 
-canvas {
-  display: block;
-}
+canvas { display: block; }
 
 .hud-layer {
   position: fixed;
   inset: 0;
   pointer-events: none;
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   padding: 10px 14px;
   z-index: 5;
 }
@@ -77,6 +75,44 @@ canvas {
 #feedback.good { color: var(--good); }
 #feedback.miss { color: var(--miss); }
 
+.gauge-line {
+  margin-top: 6px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 360px));
+  gap: 10px;
+}
+
+.gauge-block {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  letter-spacing: 0.09em;
+  text-shadow: 0 0 8px rgba(0, 0, 0, 0.8);
+}
+
+.gauge {
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(15, 27, 54, 0.9);
+  border: 1px solid rgba(164, 188, 242, 0.5);
+  overflow: hidden;
+}
+
+.gauge-fill {
+  height: 100%;
+  width: 0%;
+  transition: width 0.14s linear;
+}
+
+.gauge-fill.input {
+  background: linear-gradient(90deg, #5ad0ff, #ffd44b, #ff4b88);
+}
+
+.gauge-fill.hp {
+  width: 100%;
+  background: linear-gradient(90deg, #5df39a, #ffda5d, #ff5b7d);
+}
+
 .bottom-ui {
   align-self: end;
   display: grid;
@@ -104,8 +140,7 @@ canvas {
   padding: 14px 16px 12px;
   border-radius: 16px;
   border: 1px solid rgba(165, 193, 255, 0.5);
-  background:
-    linear-gradient(180deg, rgba(36, 56, 96, 0.82) 0%, rgba(10, 20, 44, 0.88) 100%);
+  background: linear-gradient(180deg, rgba(36, 56, 96, 0.82) 0%, rgba(10, 20, 44, 0.88) 100%);
   box-shadow:
     0 14px 26px rgba(0, 0, 0, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.15),
@@ -124,13 +159,8 @@ canvas {
   justify-content: center;
 }
 
-.keyboard-row:nth-child(2) {
-  padding-left: 20px;
-}
-
-.keyboard-row:nth-child(3) {
-  padding-left: 42px;
-}
+.keyboard-row:nth-child(2) { padding-left: 20px; }
+.keyboard-row:nth-child(3) { padding-left: 42px; }
 
 .key {
   width: 44px;
@@ -139,8 +169,7 @@ canvas {
   place-items: center;
   border-radius: 9px;
   border: 1px solid rgba(172, 201, 255, 0.55);
-  background:
-    linear-gradient(180deg, rgba(42, 70, 125, 0.92) 0%, rgba(17, 36, 76, 0.95) 100%);
+  background: linear-gradient(180deg, rgba(42, 70, 125, 0.92) 0%, rgba(17, 36, 76, 0.95) 100%);
   font-weight: 800;
   color: #e8f0ff;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.65);
@@ -176,6 +205,7 @@ canvas {
 @media (max-width: 900px) {
   .hud-top h1 { font-size: 18px; }
   #targetKey { font-size: 30px; }
+  .gauge-line { grid-template-columns: 1fr; max-width: 96vw; }
   .keyboard-shell { padding: 10px 10px 8px; }
   .keyboard-row { gap: 5px; }
   .keyboard-row:nth-child(2) { padding-left: 12px; }

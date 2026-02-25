@@ -11,12 +11,16 @@ const scoreEl = document.getElementById("score");
 const comboEl = document.getElementById("combo");
 const waveEl = document.getElementById("wave");
 const keyboardEl = document.getElementById("keyboard");
+const inputGaugeFillEl = document.getElementById("inputGaugeFill");
+const playerHpFillEl = document.getElementById("playerHpFill");
 
 let target = "A";
 let score = 0;
 let combo = 0;
 let wave = 1;
 let typedLog = [];
+let playerHp = 100;
+let inputDanger = 0;
 
 const keyButtons = new Map();
 const positionMap = new Map();
@@ -95,6 +99,70 @@ function setFeedback(rating, text) {
   feedbackEl.textContent = text;
 }
 
+function setInputDanger(next) {
+  inputDanger = Phaser.Math.Clamp(next, 0, 100);
+  inputGaugeFillEl.style.width = `${inputDanger}%`;
+}
+
+function setPlayerHp(next) {
+  playerHp = Phaser.Math.Clamp(next, 0, 100);
+  playerHpFillEl.style.width = `${playerHp}%`;
+}
+
+function consumeDangerByRating(rating) {
+  const reduceMap = { perfect: 34, good: 22, miss: 8 };
+  setInputDanger(inputDanger - (reduceMap[rating] || 0));
+}
+
+class Sfx {
+  constructor() {
+    this.ctx = null;
+  }
+
+  unlock() {
+    if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this.ctx.state === "suspended") this.ctx.resume();
+  }
+
+  tone(freq, duration = 0.09, type = "square", gain = 0.06) {
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const amp = this.ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, now);
+    amp.gain.setValueAtTime(gain, now);
+    amp.gain.exponentialRampToValueAtTime(0.001, now + duration);
+    osc.connect(amp).connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + duration);
+  }
+
+  perfect() {
+    this.unlock();
+    this.tone(760, 0.08, "triangle", 0.07);
+    this.tone(980, 0.1, "triangle", 0.06);
+  }
+
+  good() {
+    this.unlock();
+    this.tone(520, 0.09, "sine", 0.06);
+  }
+
+  miss() {
+    this.unlock();
+    this.tone(190, 0.11, "sawtooth", 0.05);
+  }
+
+  playerHit() {
+    this.unlock();
+    this.tone(140, 0.12, "square", 0.07);
+    this.tone(110, 0.14, "square", 0.06);
+  }
+}
+
+const sfx = new Sfx();
+
 let sceneRef = null;
 
 class InvaderScene extends Phaser.Scene {
@@ -106,6 +174,7 @@ class InvaderScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.cameras.main.setBackgroundColor("#060c1a");
+    this.hitStopTimeout = null;
 
     this.starA = this.add.tileSprite(0, 0, width, height, this.makeStarTexture(0x4d6aa8, 2)).setOrigin(0);
     this.starB = this.add.tileSprite(0, 0, width, height, this.makeStarTexture(0x84a1dd, 2)).setOrigin(0);
@@ -113,6 +182,10 @@ class InvaderScene extends Phaser.Scene {
 
     this.enemy = this.add.text(width * 0.78, height * 0.28, "👾", {
       fontSize: `${Math.max(84, Math.floor(width * 0.08))}px`,
+    }).setOrigin(0.5);
+
+    this.player = this.add.text(width * 0.14, height * 0.8, "🛸", {
+      fontSize: `${Math.max(56, Math.floor(width * 0.05))}px`,
     }).setOrigin(0.5);
 
     this.enemyName = this.add.text(width * 0.78, height * 0.18, "INVADER CORE", {
@@ -126,10 +199,18 @@ class InvaderScene extends Phaser.Scene {
 
     this.impactText = this.add.text(width * 0.78, height * 0.11, "", {
       fontFamily: "monospace",
-      fontSize: "44px",
+      fontSize: "52px",
       color: "#ffffff",
       stroke: "#000000",
-      strokeThickness: 6,
+      strokeThickness: 8,
+    }).setOrigin(0.5).setAlpha(0);
+
+    this.attackWarning = this.add.text(width * 0.5, height * 0.48, "", {
+      fontFamily: "monospace",
+      fontSize: "56px",
+      color: "#ff6585",
+      stroke: "#0c0310",
+      strokeThickness: 8,
     }).setOrigin(0.5).setAlpha(0);
 
     this.resizeHandler = () => this.handleResize();
@@ -167,33 +248,72 @@ class InvaderScene extends Phaser.Scene {
     return key;
   }
 
+  hitStop(target, mode = "enemy") {
+    if (this.hitStopTimeout) clearTimeout(this.hitStopTimeout);
+
+    this.cameras.main.shake(130, mode === "enemy" ? 0.005 : 0.012);
+    this.tweens.add({
+      targets: target,
+      x: target.x + Phaser.Math.Between(-8, 8),
+      y: target.y + Phaser.Math.Between(-7, 7),
+      yoyo: true,
+      repeat: 1,
+      duration: 28,
+    });
+
+    this.tweens.timeScale = 0.05;
+    this.hitStopTimeout = setTimeout(() => {
+      this.tweens.timeScale = 1;
+      this.hitStopTimeout = null;
+    }, mode === "enemy" ? 85 : 120);
+  }
+
+  spawnImpactBurst(x, y, color = 0xff77aa) {
+    for (let i = 0; i < 8; i += 1) {
+      const dot = this.add.circle(x, y, Phaser.Math.Between(3, 6), color, 0.95);
+      const a = Phaser.Math.FloatBetween(0, Math.PI * 2);
+      const dist = Phaser.Math.Between(40, 95);
+      this.tweens.add({
+        targets: dot,
+        x: x + Math.cos(a) * dist,
+        y: y + Math.sin(a) * dist,
+        alpha: 0,
+        scale: 0.2,
+        duration: 380,
+        ease: "Cubic.Out",
+        onComplete: () => dot.destroy(),
+      });
+    }
+  }
+
   fireLetter(letter, rating) {
     const { width, height } = this.scale;
     const colors = { perfect: "#ff5fa2", good: "#5fe5ff", miss: "#a6b2cb" };
     const damageMap = { perfect: 28, good: 16, miss: 0 };
 
-    const bullet = this.add.text(width * 0.14, height * 0.82, letter, {
+    const bullet = this.add.text(width * 0.18, height * 0.8, letter, {
       fontFamily: "monospace",
-      fontSize: "54px",
+      fontSize: rating === "perfect" ? "72px" : "56px",
       color: colors[rating],
       stroke: "#000",
-      strokeThickness: 6,
-    }).setOrigin(0.5);
+      strokeThickness: 8,
+    }).setOrigin(0.5).setScale(0.5);
 
     this.tweens.add({
       targets: bullet,
       x: this.enemy.x - 28,
       y: this.enemy.y + 8,
-      scale: { from: 0.4, to: 1.1 },
-      alpha: { from: 0.3, to: 1 },
-      duration: 360,
-      ease: "Cubic.Out",
+      scale: 1.18,
+      alpha: { from: 0.45, to: 1 },
+      duration: rating === "perfect" ? 280 : 360,
+      ease: rating === "perfect" ? "Back.Out" : "Cubic.Out",
       onComplete: () => bullet.destroy(),
     });
 
     const damage = damageMap[rating];
     if (damage > 0) {
-      this.tweens.add({ targets: this.enemy, scale: 1.18, angle: -6, duration: 60, yoyo: true });
+      this.hitStop(this.enemy, "enemy");
+      this.spawnImpactBurst(this.enemy.x - 8, this.enemy.y + 12, rating === "perfect" ? 0xff5fa2 : 0x5fe5ff);
       this.applyDamage(damage);
     }
 
@@ -210,17 +330,17 @@ class InvaderScene extends Phaser.Scene {
 
     this.impactText.setText(labels[rating]);
     this.impactText.setColor(colors[rating]);
-    this.impactText.setScale(0.8);
+    this.impactText.setScale(rating === "perfect" ? 1.22 : 1);
     this.impactText.setAlpha(1);
 
     this.tweens.add({
       targets: this.impactText,
-      scale: 1.06,
-      y: this.enemyName.y - 12,
-      duration: 100,
+      y: this.enemyName.y - 20,
+      scale: this.impactText.scale + 0.1,
+      duration: 110,
       yoyo: true,
       onComplete: () => {
-        this.tweens.add({ targets: this.impactText, alpha: 0, duration: 260 });
+        this.tweens.add({ targets: this.impactText, alpha: 0, duration: 300 });
       },
     });
   }
@@ -239,14 +359,49 @@ class InvaderScene extends Phaser.Scene {
       this.enemyHp = 100;
       this.hpBar.width = this.hpBg.width;
       this.hpBar.fillColor = 0x44dd77;
+      this.spawnImpactBurst(this.enemy.x, this.enemy.y, 0xffef77);
       setFeedback("perfect", "WAVE CLEAR! 次の敵が出現！");
     }
   }
 
+  enemyAttack() {
+    const orb = this.add.circle(this.enemy.x - 18, this.enemy.y + 10, 12, 0xff6485, 1);
+    this.tweens.add({
+      targets: orb,
+      x: this.player.x + 8,
+      y: this.player.y - 6,
+      scale: 2,
+      duration: 480,
+      ease: "Cubic.In",
+      onComplete: () => {
+        orb.destroy();
+        this.hitStop(this.player, "player");
+        this.spawnImpactBurst(this.player.x + 12, this.player.y - 6, 0xff6485);
+        this.attackWarning.setText("DAMAGE!");
+        this.attackWarning.setAlpha(1);
+        this.tweens.add({
+          targets: this.attackWarning,
+          alpha: 0,
+          duration: 420,
+          ease: "Quad.Out",
+        });
+        setPlayerHp(playerHp - 18);
+        sfx.playerHit();
+        setFeedback("miss", "敵の攻撃！入力してゲージを下げよう");
+      },
+    });
+  }
+
   update(_, delta) {
     this.starA.tilePositionY -= 0.05 * delta;
-    this.starB.tilePositionY -= 0.09 * delta;
-    this.grid.tilePositionY -= 0.03 * delta;
+    this.starB.tilePositionY -= 0.1 * delta;
+    this.grid.tilePositionY -= 0.04 * delta;
+
+    setInputDanger(inputDanger + delta * 0.008);
+    if (inputDanger >= 100) {
+      setInputDanger(42);
+      this.enemyAttack();
+    }
   }
 
   handleResize() {
@@ -255,14 +410,16 @@ class InvaderScene extends Phaser.Scene {
     this.starB.setSize(width, height);
     this.grid.setSize(width, height);
     this.enemy.setPosition(width * 0.78, height * 0.28);
+    this.player.setPosition(width * 0.14, height * 0.8);
     this.enemyName.setPosition(width * 0.78, height * 0.18);
     this.hpBg.setPosition(width * 0.78, height * 0.22).setSize(width * 0.24, 16);
     this.hpBar.setPosition(this.hpBg.x - this.hpBg.width / 2, this.hpBg.y).setSize(this.hpBg.width * (this.enemyHp / 100), 12);
     this.impactText.setPosition(width * 0.78, height * 0.11);
+    this.attackWarning.setPosition(width * 0.5, height * 0.48);
   }
 }
 
-const game = new Phaser.Game({
+new Phaser.Game({
   type: Phaser.AUTO,
   parent: "gameRoot",
   width: window.innerWidth,
@@ -275,20 +432,22 @@ const game = new Phaser.Game({
   },
 });
 
-
 function handleScore(rating) {
   if (rating === "perfect") {
     score += 120 + combo * 4;
     combo += 1;
     setFeedback("perfect", "Perfect! 直撃！");
+    sfx.perfect();
   } else if (rating === "good") {
     score += 70 + combo * 2;
     combo += 1;
     setFeedback("good", "Good! かすった！");
+    sfx.good();
   } else {
     score += 10;
     combo = 0;
     setFeedback("miss", "Miss! でも経験値+1");
+    sfx.miss();
   }
 
   scoreEl.textContent = String(score);
@@ -299,16 +458,21 @@ document.addEventListener("keydown", (event) => {
   const input = normalizeInputKey(event);
   if (!input) return;
 
+  sfx.unlock();
+
   const rating = judge(input);
   updateLog(input);
   renderKeyboard(input);
 
+  consumeDangerByRating(rating);
   handleScore(rating);
-  if (sceneRef && sceneRef.fireLetter) sceneRef.fireLetter(input, rating);
 
+  if (sceneRef && sceneRef.fireLetter) sceneRef.fireLetter(input, rating);
   if (rating !== "miss") setTimeout(setNextTarget, 220);
   setTimeout(() => renderKeyboard(), 120);
 });
 
+setInputDanger(20);
+setPlayerHp(100);
 buildKeyboard();
 setNextTarget();
