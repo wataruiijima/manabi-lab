@@ -9,6 +9,15 @@
   <body>
     <div id="gameRoot"></div>
 
+    <div id="retryOverlay" class="retry-overlay hidden" aria-hidden="true">
+      <div class="retry-panel">
+        <p class="retry-kicker">SYSTEM FAILURE</p>
+        <h2>GAME OVER</h2>
+        <p id="retryScoreText">SCORE 0 / WAVE 1</p>
+        <button id="retryButton" type="button">RETRY</button>
+      </div>
+    </div>
+
     <div class="hud-layer">
       <header class="hud-top">
         <h1>キーインベーダー・ラボ</h1>

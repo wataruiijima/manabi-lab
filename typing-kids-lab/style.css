@@ -212,3 +212,64 @@ canvas { display: block; }
   .keyboard-row:nth-child(3) { padding-left: 24px; }
   .key { width: 34px; height: 34px; font-size: 12px; }
 }
+
+
+.retry-overlay {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at center, rgba(255, 72, 96, 0.28), rgba(0, 0, 0, 0.86));
+  backdrop-filter: blur(3px);
+  z-index: 12;
+}
+
+.retry-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.retry-panel {
+  min-width: min(460px, 90vw);
+  text-align: center;
+  padding: 30px 26px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 171, 186, 0.5);
+  background: linear-gradient(180deg, rgba(53, 13, 24, 0.93), rgba(18, 5, 10, 0.95));
+  box-shadow: 0 0 0 2px rgba(255, 105, 132, 0.12), 0 22px 38px rgba(0, 0, 0, 0.58);
+  pointer-events: auto;
+}
+
+.retry-panel h2 {
+  margin: 0;
+  font-size: clamp(34px, 8vw, 64px);
+  letter-spacing: 0.08em;
+  color: #ff6b9b;
+  text-shadow: 0 0 18px rgba(255, 88, 132, 0.65);
+}
+
+.retry-kicker {
+  margin: 0 0 6px;
+  letter-spacing: 0.14em;
+  font-size: 12px;
+  color: #ffd2dd;
+}
+
+#retryScoreText {
+  margin: 12px 0 22px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+#retryButton {
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 34px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  color: #fff;
+  cursor: pointer;
+  background: linear-gradient(90deg, #ff4f88, #ff764f);
+  box-shadow: 0 8px 18px rgba(255, 96, 126, 0.4);
+}
