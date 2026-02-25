@@ -37,6 +37,7 @@ const playerHpFillEl = document.getElementById("playerHpFill");
 const retryOverlayEl = document.getElementById("retryOverlay");
 const retryButtonEl = document.getElementById("retryButton");
 const retryScoreTextEl = document.getElementById("retryScoreText");
+const targetPanelEl = document.querySelector(".target-panel");
 
 let targetSequence = ["A"];
 let targetIndex = 0;
@@ -103,9 +104,9 @@ function updateTargetDisplay() {
   targetKeyEl.dataset.mode = targetSequence.length === 2 ? "double" : "single";
 
   if (targetSequence.length === 2) {
-    targetModeEl.textContent = `2KEY MISSION ${targetIndex + 1}/2`;
+    targetModeEl.textContent = `にこ みっしょん ${targetIndex + 1}/2`;
   } else {
-    targetModeEl.textContent = "SINGLE SHOT";
+    targetModeEl.textContent = "ひとつ うつ";
   }
 }
 
@@ -158,6 +159,11 @@ function updateLog(input) {
 function setFeedback(rating, text) {
   feedbackEl.className = rating ? rating : "";
   feedbackEl.textContent = text;
+  feedbackEl.classList.remove("pulse");
+  targetPanelEl.classList.remove("flash");
+  void feedbackEl.offsetWidth;
+  feedbackEl.classList.add("pulse");
+  targetPanelEl.classList.add("flash");
 }
 
 function setInputDanger(next) {
@@ -176,7 +182,7 @@ function consumeDangerByRating(rating) {
 }
 
 function showRetryOverlay() {
-  retryScoreTextEl.textContent = `SCORE ${score} / WAVE ${wave}`;
+  retryScoreTextEl.textContent = `すこあ ${score} / らうんど ${wave}`;
   retryOverlayEl.classList.remove("hidden");
   retryOverlayEl.setAttribute("aria-hidden", "false");
 }
@@ -210,7 +216,7 @@ function resetGameState() {
 function triggerGameOver() {
   if (isGameOver) return;
   isGameOver = true;
-  setFeedback("miss", "撃墜された…！RETRYで再挑戦");
+  setFeedback("miss", "げきつい…！もういちど ちょうせん");
   if (sceneRef && sceneRef.playGameOverEffect) sceneRef.playGameOverEffect();
   showRetryOverlay();
 }
@@ -289,22 +295,18 @@ class InvaderScene extends Phaser.Scene {
     this.starB = this.add.tileSprite(0, 0, width, height, this.makeStarTexture(0x84a1dd, 2)).setOrigin(0);
     this.grid = this.add.tileSprite(0, 0, width, height, this.makeGridTexture()).setOrigin(0).setAlpha(0.26);
 
-    this.enemy = this.add.text(width * 0.78, height * 0.28, "👾", {
+    this.enemyMonsters = ["👾", "👹", "🤖", "🦖", "🐙", "🦇", "👻"];
+    this.enemyLabels = ["いんべーだー", "おに", "ろぼ", "きょうりゅう", "たこ", "こうもり", "おばけ"];
+    this.enemyMonsterIndex = 0;
+
+    this.enemy = this.add.text(width * 0.78, height * 0.28, this.enemyMonsters[0], {
       fontSize: `${Math.max(84, Math.floor(width * 0.08))}px`,
     }).setOrigin(0.5);
 
-    this.enemyIndicator = this.add.text(this.enemy.x, this.enemy.y + 72, "▼ ATTACKER", {
-      fontFamily: "monospace",
-      fontSize: "20px",
-      color: "#ff88ac",
-      stroke: "#2a0714",
-      strokeThickness: 6,
-    }).setOrigin(0.5);
-
-    this.tweens.add({
-      targets: this.enemyIndicator,
-      y: this.enemyIndicator.y + 10,
-      duration: 300,
+    this.enemyFloatTween = this.tweens.add({
+      targets: this.enemy,
+      y: this.enemy.y + 12,
+      duration: 680,
       yoyo: true,
       repeat: -1,
       ease: "Sine.InOut",
@@ -314,7 +316,7 @@ class InvaderScene extends Phaser.Scene {
       fontSize: `${Math.max(56, Math.floor(width * 0.05))}px`,
     }).setOrigin(0.5);
 
-    this.enemyName = this.add.text(width * 0.78, height * 0.18, "INVADER CORE", {
+    this.enemyName = this.add.text(width * 0.78, height * 0.18, "てき: いんべーだー", {
       fontFamily: "monospace",
       fontSize: "20px",
       color: "#a9c1ff",
@@ -387,6 +389,7 @@ class InvaderScene extends Phaser.Scene {
 
     if (!animate) {
       this.enemy.setPosition(nx, ny);
+      this.refreshEnemyFloat();
       this.syncEnemyHud();
       return;
     }
@@ -398,7 +401,22 @@ class InvaderScene extends Phaser.Scene {
       duration: 320,
       ease: "Cubic.Out",
       onUpdate: () => this.syncEnemyHud(),
-      onComplete: () => this.syncEnemyHud(),
+      onComplete: () => {
+        this.refreshEnemyFloat();
+        this.syncEnemyHud();
+      },
+    });
+  }
+
+  refreshEnemyFloat() {
+    if (this.enemyFloatTween) this.enemyFloatTween.stop();
+    this.enemyFloatTween = this.tweens.add({
+      targets: this.enemy,
+      y: this.enemy.y + 12,
+      duration: 680,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut",
     });
   }
 
@@ -406,7 +424,6 @@ class InvaderScene extends Phaser.Scene {
     this.enemyName.setPosition(this.enemy.x, this.enemy.y - 70);
     this.hpBg.setPosition(this.enemy.x, this.enemy.y - 34);
     this.hpBar.setPosition(this.hpBg.x - this.hpBg.width / 2, this.hpBg.y);
-    this.enemyIndicator.setPosition(this.enemy.x, this.enemy.y + 72);
     this.impactText.setPosition(this.enemy.x, this.enemy.y - 116);
   }
 
@@ -434,7 +451,7 @@ class InvaderScene extends Phaser.Scene {
     this.cameras.main.flash(100, 255, 70, 95, true);
     this.hitStop(this.player, "player");
     this.cameras.main.shake(260, 0.02);
-    this.attackWarning.setText("SYSTEM DOWN");
+    this.attackWarning.setText("しすてむ だうん");
     this.attackWarning.setAlpha(1);
     this.tweens.add({
       targets: this.attackWarning,
@@ -499,9 +516,9 @@ class InvaderScene extends Phaser.Scene {
 
   showImpact(rating, damage) {
     const labels = {
-      perfect: `PERFECT -${damage}`,
-      good: `GOOD -${damage}`,
-      miss: "MISS +0",
+      perfect: `かんぺき -${damage}`,
+      good: `いいね -${damage}`,
+      miss: "ざんねん +0",
     };
     const colors = { perfect: "#ff5fa2", good: "#5fe5ff", miss: "#a6b2cb" };
 
@@ -533,12 +550,15 @@ class InvaderScene extends Phaser.Scene {
     if (this.enemyHp === 0) {
       wave += 1;
       waveEl.textContent = String(wave);
+      this.enemyMonsterIndex = (this.enemyMonsterIndex + 1) % this.enemyMonsters.length;
+      this.enemy.setText(this.enemyMonsters[this.enemyMonsterIndex]);
+      this.enemyName.setText(`てき: ${this.enemyLabels[this.enemyMonsterIndex]}`);
       this.enemyHp = 100;
       this.hpBar.width = this.hpBg.width;
       this.hpBar.fillColor = 0x44dd77;
       this.spawnImpactBurst(this.enemy.x, this.enemy.y, 0xffef77);
       this.moveEnemyToNewSpot();
-      setFeedback("perfect", "WAVE CLEAR! 次の敵が転移！");
+      setFeedback("perfect", "らうんどくりあ！つぎのてき とうじょう！");
     }
   }
 
@@ -556,7 +576,7 @@ class InvaderScene extends Phaser.Scene {
         orb.destroy();
         this.hitStop(this.player, "player");
         this.spawnImpactBurst(this.player.x + 12, this.player.y - 6, 0xff6485);
-        this.attackWarning.setText("DAMAGE!");
+        this.attackWarning.setText("だめーじ！");
         this.attackWarning.setAlpha(1);
         this.tweens.add({
           targets: this.attackWarning,
@@ -569,7 +589,7 @@ class InvaderScene extends Phaser.Scene {
         if (playerHp <= 0) {
           triggerGameOver();
         } else {
-          setFeedback("miss", "敵の攻撃！入力してゲージを下げよう");
+          setFeedback("miss", "てきのこうげき！にゅうりょくして きけんどをさげよう");
         }
       },
     });
@@ -633,19 +653,19 @@ function handleScore(rating, missionComplete = false) {
     perfectStreak += 1;
     score += 120 + combo * 4;
     combo += 1;
-    setFeedback("perfect", missionComplete ? "Perfect! 2KEY突破！" : "Perfect! 直撃！");
+    setFeedback("perfect", missionComplete ? "かんぺき！にこ せいこう！" : "かんぺき！ちょくげき！");
     sfx.perfect();
   } else if (rating === "good") {
     perfectStreak = 0;
     score += 70 + combo * 2;
     combo += 1;
-    setFeedback("good", missionComplete ? "Good! 2KEY成功！" : "Good! かすった！");
+    setFeedback("good", missionComplete ? "いいね！にこ せいこう！" : "いいね！おしい！");
     sfx.good();
   } else {
     perfectStreak = 0;
     score += 10;
     combo = 0;
-    setFeedback("miss", "Miss! 敵のゲージが上昇");
+    setFeedback("miss", "ざんねん！てきが いきおいづく");
     sfx.miss();
   }
 
@@ -688,7 +708,7 @@ document.addEventListener("keydown", (event) => {
     handleScore(rating, false);
     targetIndex += 1;
     updateTargetDisplay();
-    setFeedback(rating, "次のキーを続けて入力！");
+    setFeedback(rating, "つぎのきーを つづけてにゅうりょく！");
     renderKeyboard(input);
   }
 
