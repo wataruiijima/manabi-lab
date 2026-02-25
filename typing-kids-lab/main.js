@@ -299,6 +299,26 @@ const sfx = new Sfx();
 
 let sceneRef = null;
 
+function viewportHeight() {
+  return window.visualViewport ? window.visualViewport.height : window.innerHeight;
+}
+
+function viewportWidth() {
+  return window.visualViewport ? window.visualViewport.width : window.innerWidth;
+}
+
+function syncAppHeightVar() {
+  const vh = Math.round(viewportHeight());
+  document.documentElement.style.setProperty("--app-height", `${vh}px`);
+}
+
+function syncGameSize() {
+  syncAppHeightVar();
+  if (!sceneRef || !sceneRef.scale) return;
+  sceneRef.scale.resize(Math.round(viewportWidth()), Math.round(viewportHeight()));
+}
+
+
 class InvaderScene extends Phaser.Scene {
   constructor() {
     super("invader");
@@ -699,11 +719,18 @@ class InvaderScene extends Phaser.Scene {
   }
 }
 
+syncAppHeightVar();
+window.addEventListener("resize", syncGameSize);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", syncGameSize);
+  window.visualViewport.addEventListener("scroll", syncGameSize);
+}
+
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: "gameRoot",
-  width: window.innerWidth,
-  height: window.innerHeight,
+  width: Math.round(viewportWidth()),
+  height: Math.round(viewportHeight()),
   backgroundColor: "#060c1a",
   scene: InvaderScene,
   scale: {
