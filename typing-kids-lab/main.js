@@ -75,7 +75,8 @@ const applySettingsButtonEl = getById("applySettingsButton");
 const closeSettingsButtonEl = getById("closeSettingsButton");
 const gateOverlayEl = getById("gateOverlay");
 const gateQuestionEl = getById("gateQuestion");
-const gateChoicesEl = getById("gateChoices");
+const gateAnswerInputEl = getById("gateAnswerInput");
+const gateSubmitButtonEl = getById("gateSubmitButton");
 const gateFeedbackEl = getById("gateFeedback");
 const gateCancelButtonEl = getById("gateCancelButton");
 
@@ -84,7 +85,7 @@ const wordMissions = [{ word: "GO", emoji: "🚀", label: "ごー" }, { word: "C
 let targetSequence = ["A"]; let targetIndex = 0; let score = 0; let combo = 0; let defeatedCount = 0; let typedLog = [];
 let playerHp = 100; let inputDanger = 0; let isGameOver = false; let perfectStreak = 0; let currentMission = null;
 let lastInputAt = Date.now(); const idleHintMs = 1700; const clearScoreThreshold = 3000; let isCleared = false;
-let isGameStarted = false; let gateAction = null;
+let isGameStarted = false; let gateAction = null; let gateAnswer = null;
 
 const keyButtons = new Map();
 const positionMap = new Map();
@@ -110,6 +111,8 @@ function buildKeyboard() {
     visible.forEach((key) => {
       const keyEl = document.createElement("div");
       keyEl.className = `key ${key.size || ""}`.trim();
+      if (!/^[A-Z]$/.test(key.id)) keyEl.classList.add("non-input");
+      if (settings.layout === "JIS" && key.id === "ENTER") keyEl.classList.add("jis-enter");
       keyEl.textContent = key.label;
       rowEl.appendChild(keyEl);
       if (/^[A-Z]$/.test(key.id)) keyButtons.set(key.id, keyEl);
@@ -233,25 +236,28 @@ function handleScore(rating, missionComplete = false) {
 
 function showGate(action) {
   gateAction = action;
-  const a = Phaser.Math.Between(2, 9); const b = Phaser.Math.Between(1, 9); const answer = a * b;
+  const a = Phaser.Math.Between(2, 9); const b = Phaser.Math.Between(1, 9);
+  gateAnswer = a * b;
   gateQuestionEl.textContent = `${a} × ${b} = ?`;
-  gateFeedbackEl.textContent = "ただしい こたえを えらんでください";
-  const choices = [answer, answer + Phaser.Math.Between(1, 6), Math.max(0, answer - Phaser.Math.Between(1, 5))].sort(() => Math.random() - 0.5);
-  gateChoicesEl.innerHTML = "";
-  choices.forEach((value) => {
-    const btn = document.createElement("button"); btn.type = "button"; btn.textContent = String(value);
-    btn.addEventListener("click", () => {
-      if (value === answer) {
-        gateOverlayEl.classList.add("hidden");
-        if (gateAction === "start") { startOverlayEl.classList.add("hidden"); isGameStarted = true; resetGameState(); }
-        if (gateAction === "settings") settingsOverlayEl.classList.remove("hidden");
-      } else {
-        gateFeedbackEl.textContent = "ちがいます。もういちど";
-      }
-    });
-    gateChoicesEl.appendChild(btn);
-  });
+  gateAnswerInputEl.value = "";
+  gateFeedbackEl.textContent = "かけざんの こたえを いれてください";
   gateOverlayEl.classList.remove("hidden");
+  setTimeout(() => gateAnswerInputEl.focus(), 40);
+}
+
+function submitGateAnswer() {
+  const entered = Number(gateAnswerInputEl.value);
+  if (!Number.isFinite(entered)) {
+    gateFeedbackEl.textContent = "すうじを いれてください";
+    return;
+  }
+  if (entered !== gateAnswer) {
+    gateFeedbackEl.textContent = "ちがいます。もういちど";
+    gateAnswerInputEl.select();
+    return;
+  }
+  gateOverlayEl.classList.add("hidden");
+  if (gateAction === "settings") settingsOverlayEl.classList.remove("hidden");
 }
 
 document.addEventListener("keydown", (event) => {
@@ -266,10 +272,16 @@ document.addEventListener("keydown", (event) => {
   setTimeout(() => renderKeyboard(), 120);
 });
 
-startButtonEl.addEventListener("click", () => showGate("start"));
+startButtonEl.addEventListener("click", () => {
+  startOverlayEl.classList.add("hidden");
+  isGameStarted = true;
+  resetGameState();
+});
 openSettingsButtonEl.addEventListener("click", () => showGate("settings"));
 closeSettingsButtonEl.addEventListener("click", () => settingsOverlayEl.classList.add("hidden"));
 gateCancelButtonEl.addEventListener("click", () => gateOverlayEl.classList.add("hidden"));
+gateSubmitButtonEl.addEventListener("click", submitGateAnswer);
+gateAnswerInputEl.addEventListener("keydown", (event) => { if (event.key === "Enter") submitGateAnswer(); });
 applySettingsButtonEl.addEventListener("click", () => {
   settings.layout = layoutSelectEl.value;
   settings.showFunctionKeys = toggleFunctionRowEl.checked;

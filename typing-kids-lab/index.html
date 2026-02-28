@@ -41,9 +41,13 @@
       <div class="gate-panel">
         <p class="gate-kicker">ほごしゃ かくにん</p>
         <h3 id="gateQuestion">3 × 4 = ?</h3>
-        <div id="gateChoices" class="gate-choices"></div>
-        <p id="gateFeedback" class="gate-feedback">ただしい こたえを えらんでください</p>
-        <button id="gateCancelButton" class="gate-cancel" type="button">キャンセル</button>
+        <p class="gate-description">せいかいを にゅうりょく してください</p>
+        <input id="gateAnswerInput" class="gate-input" type="number" inputmode="numeric" min="0" max="99" />
+        <p id="gateFeedback" class="gate-feedback">かけざんの こたえを いれてください</p>
+        <div class="settings-actions">
+          <button id="gateSubmitButton" type="button">かくにん</button>
+          <button id="gateCancelButton" class="gate-cancel" type="button">キャンセル</button>
+        </div>
       </div>
     </div>
 
