@@ -9,6 +9,44 @@
   <body>
     <div id="gameRoot"></div>
 
+    <div id="startOverlay" class="start-overlay" aria-hidden="false">
+      <div class="start-panel">
+        <p class="start-kicker">typing kids lab</p>
+        <h2>キーインベーダー・ラボ</h2>
+        <p>おおきなスタートで はじめよう</p>
+        <button id="startButton" class="start-button" type="button">START</button>
+        <button id="openSettingsButton" class="settings-button" type="button">ほごしゃ せってい</button>
+      </div>
+    </div>
+
+    <div id="settingsOverlay" class="settings-overlay hidden" aria-hidden="true">
+      <div class="settings-panel">
+        <h3>ほごしゃ せってい</h3>
+        <label>キーボード配列
+          <select id="layoutSelect">
+            <option value="JIS">JIS（日本語）</option>
+            <option value="US">US</option>
+          </select>
+        </label>
+        <label><input id="toggleFunctionRow" type="checkbox" checked /> F1〜F12 を表示</label>
+        <label><input id="toggleNumberRow" type="checkbox" checked /> 数字キー列を表示</label>
+        <div class="settings-actions">
+          <button id="applySettingsButton" type="button">はんえい</button>
+          <button id="closeSettingsButton" type="button">とじる</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="gateOverlay" class="gate-overlay hidden" aria-hidden="true">
+      <div class="gate-panel">
+        <p class="gate-kicker">ほごしゃ かくにん</p>
+        <h3 id="gateQuestion">3 × 4 = ?</h3>
+        <div id="gateChoices" class="gate-choices"></div>
+        <p id="gateFeedback" class="gate-feedback">ただしい こたえを えらんでください</p>
+        <button id="gateCancelButton" class="gate-cancel" type="button">キャンセル</button>
+      </div>
+    </div>
+
     <div id="retryOverlay" class="retry-overlay hidden" aria-hidden="true">
       <div class="retry-panel">
         <p class="retry-kicker">しすてむ ていし</p>
@@ -27,7 +65,7 @@
       </div>
     </div>
 
-    <div class="hud-layer">
+    <div id="hudLayer" class="hud-layer">
       <header class="hud-top">
         <h1>キーインベーダー・ラボ</h1>
         <div class="stats-grid">
