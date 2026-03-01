@@ -48,6 +48,7 @@ similarKeyGroups.forEach((group) => group.forEach((key) => similarKeyMap.set(key
 const getById = (id) => document.getElementById(id);
 const targetKeyEl = getById("targetKey");
 const targetModeEl = getById("targetMode");
+const targetGuideEl = getById("targetGuide");
 const feedbackEl = getById("feedback");
 const typedLogEl = getById("typedLog");
 const scoreEl = getById("score");
@@ -94,6 +95,39 @@ letterRows.forEach((row, r) => row.forEach((key, c) => positionMap.set(key, { r,
 function currentTarget() { return targetSequence[targetIndex]; }
 function neighborsOf(key) { const pos = positionMap.get(key); if (!pos) return []; const list = []; for (let dr = -1; dr <= 1; dr += 1) { for (let dc = -1; dc <= 1; dc += 1) { if (dr === 0 && dc === 0) continue; const row = letterRows[pos.r + dr]; if (!row) continue; const near = row[pos.c + dc]; if (near) list.push(near); } } return list; }
 function helperKeysOf(key) { return [...neighborsOf(key), ...(similarKeyMap.get(key) || [])]; }
+function keyDistance(fromKey, toKey) {
+  const from = positionMap.get(fromKey); const to = positionMap.get(toKey);
+  if (!from || !to) return Infinity;
+  const dr = Math.abs(from.r - to.r); const dc = Math.abs(from.c - to.c);
+  return Math.max(dr, dc);
+}
+function targetDistanceByCombo() {
+  if (combo >= 20 || perfectStreak >= 10) return 3;
+  if (combo >= 8 || perfectStreak >= 4) return 2;
+  return 1;
+}
+function randomFrom(list, fallback) { return list.length > 0 ? list[Math.floor(Math.random() * list.length)] : fallback; }
+function pickTargetNear(previous) {
+  const flat = letterRows.flat();
+  if (!previous || !positionMap.has(previous)) return randomFrom(flat, "A");
+  const maxDistance = targetDistanceByCombo();
+  const candidates = flat.filter((k) => keyDistance(previous, k) <= maxDistance);
+  return randomFrom(candidates, previous);
+}
+function directionArrow(fromKey, toKey) {
+  const from = positionMap.get(fromKey); const to = positionMap.get(toKey);
+  if (!from || !to) return "";
+  const dr = to.r - from.r; const dc = to.c - from.c;
+  if (dr === 0 && dc === 0) return "";
+  if (dr < 0 && dc === 0) return "↑";
+  if (dr > 0 && dc === 0) return "↓";
+  if (dr === 0 && dc < 0) return "←";
+  if (dr === 0 && dc > 0) return "→";
+  if (dr < 0 && dc < 0) return "↖";
+  if (dr < 0 && dc > 0) return "↗";
+  if (dr > 0 && dc < 0) return "↙";
+  return "↘";
+}
 
 function buildKeyboard() {
   keyboardEl.innerHTML = "";
@@ -136,19 +170,29 @@ function updateTargetDisplay() {
     const missionName = currentMission ? `${currentMission.label} ${currentMission.emoji}` : "ことば";
     targetModeEl.textContent = `${missionName} ${targetIndex + 1}/${targetSequence.length}`;
   } else { targetModeEl.textContent = "ひとつ うつ"; }
+
+  const previousKey = typedLog[0] || "";
+  const target = currentTarget();
+  const dist = keyDistance(previousKey, target);
+  if (!previousKey || !Number.isFinite(dist) || dist <= 1) {
+    targetGuideEl.textContent = "";
+    return;
+  }
+  const arrow = directionArrow(previousKey, target);
+  targetGuideEl.textContent = `${previousKey} から ${arrow} ${target}`;
 }
 function setNextTarget(forceSingle = false) {
-  const flat = letterRows.flat();
   if (forceSingle) {
-    currentMission = null; targetSequence = [flat[Math.floor(Math.random() * flat.length)]];
+    currentMission = null;
+    targetSequence = ["A"];
   } else {
-    const unlockedLength = missionLengthByCombo(); const pool = wordMissions.filter((mission) => mission.word.length <= unlockedLength);
-    const shouldUseMission = unlockedLength >= 2 && Math.random() < 0.62;
-    if (shouldUseMission && pool.length > 0) { currentMission = pool[Math.floor(Math.random() * pool.length)]; targetSequence = currentMission.word.slice(0, 5).split(""); }
-    else { currentMission = null; targetSequence = [flat[Math.floor(Math.random() * flat.length)]]; }
+    currentMission = null;
+    const previousKey = typedLog[0] || currentTarget() || "A";
+    targetSequence = [pickTargetNear(previousKey)];
   }
   targetIndex = 0; updateTargetDisplay(); renderKeyboard();
 }
+
 
 function renderKeyboard(pressed = "") {
   const target = currentTarget(); const helper = helperKeysOf(target); const idleElapsed = Date.now() - lastInputAt;
@@ -177,7 +221,7 @@ function hideClearOverlay() { clearOverlayEl.classList.add("hidden"); }
 function resetGameState() {
   targetSequence = ["A"]; targetIndex = 0; score = 0; combo = 0; defeatedCount = 0; typedLog = []; isGameOver = false; perfectStreak = 0; currentMission = null;
   lastInputAt = Date.now(); isCleared = false; scoreEl.textContent = "0"; comboEl.textContent = "0"; waveEl.textContent = "0"; perfectStreakEl.textContent = "0";
-  typedLogEl.textContent = "-"; setInputDanger(20); setPlayerHp(100); setFeedback("", "キーを押して攻撃！"); setNextTarget(true); hideClearOverlay(); hideRetryOverlay();
+  typedLogEl.textContent = "-"; targetGuideEl.textContent = ""; setInputDanger(20); setPlayerHp(100); setFeedback("", "キーを押して攻撃！"); setNextTarget(true); hideClearOverlay(); hideRetryOverlay();
   if (sceneRef && sceneRef.resetBattle) sceneRef.resetBattle();
 }
 
