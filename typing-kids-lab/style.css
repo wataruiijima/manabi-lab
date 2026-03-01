@@ -89,15 +89,15 @@ canvas { display: block; }
   height: var(--app-height);
   pointer-events: none;
   display: grid;
-  grid-template-rows: auto auto auto 1fr;
+  grid-template-rows: auto auto 1fr;
   padding: 10px 14px calc(8px + env(safe-area-inset-bottom));
   z-index: 5;
 }
-.hud-top { display: grid; grid-template-columns: 1fr; align-items: flex-start; gap: 8px; padding: 2px 2px 6px; }
+.hud-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(320px, 56vw); align-items: center; gap: 10px; padding: 2px 2px 6px; }
 .hud-top h1 { margin: 2px 0 0; font-size: clamp(18px, 2.4vw, 24px); text-shadow: 0 4px 14px rgba(0,0,0,.45); }
-.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(110px, 1fr)); gap: 8px; width: min(700px, 100%); z-index: 0; opacity: 0.9; }
+.stats-grid { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 8px; width: 100%; justify-self: end; z-index: 0; opacity: 0.9; }
 .stat-chip { display: flex; justify-content: space-between; padding: 8px 12px; border-radius: 14px; border: 1px solid rgba(166,192,255,0.45); background: rgba(16,26,52,0.9); font-weight: 800; font-size: 12px; backdrop-filter: blur(1px); }
-.target-panel { margin: 6px auto 0; align-self: center; width: min(380px, 84vw); min-height: 128px; padding: 10px 16px 12px; border-radius: 18px; display: grid; justify-items: center; gap: 6px; text-align: center; background: rgba(8,16,36,0.62); border: 1px solid rgba(165,194,255,0.48); backdrop-filter: blur(2px); z-index: 2; }
+.target-panel { margin: clamp(56px, 14vh, 180px) auto 0; align-self: start; width: min(380px, 84vw); min-height: 128px; padding: 10px 16px 12px; border-radius: 18px; display: grid; justify-items: center; gap: 6px; text-align: center; background: rgba(8,16,36,0.62); border: 1px solid rgba(165,194,255,0.48); backdrop-filter: blur(2px); z-index: 2; }
 .target-mode { margin: 0; font-size: 11px; letter-spacing: .16em; color: #a5c2ff; font-weight: 800; }
 #targetKey { color: var(--accent); font-size: clamp(30px, 4.2vw, 48px); }
 .letter { display: inline-block; min-width: 0.62em; margin: 0 .02em; transition: transform 120ms ease, opacity 120ms ease, font-size 120ms ease; }
@@ -105,13 +105,13 @@ canvas { display: block; }
 .letter.current { font-size: 1em; opacity: 1; transform: scale(1.12); text-shadow: 0 0 14px rgba(255, 222, 118, 0.45); }
 .letter.upcoming { font-size: 0.78em; opacity: 0.78; }
 #feedback { font-size: 14px; font-weight: 800; }
-.gauge-line { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.gauge-line { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 2px; }
 .gauge { height: 12px; border-radius: 8px; background: rgba(89,109,156,.3); overflow: hidden; margin-top: 6px; }
 .gauge-fill { height: 100%; width: 0; transition: width .15s linear; }
 .gauge-fill.input { background: linear-gradient(90deg,#4fc8ff,#66f2ff); }
 .gauge-fill.hp { background: linear-gradient(90deg,#57e68e,#f8d758,#ff6980); }
-.log-inline { margin-bottom: 8px; font-weight: 800; }
-.bottom-ui { align-self: end; margin-bottom: 6px; }
+.log-inline { margin: 8px 0 2px; font-weight: 800; font-size: clamp(22px, 2.6vw, 34px); line-height: 1.15; text-shadow: 0 4px 12px rgba(0, 0, 0, 0.45); }
+.bottom-ui { align-self: end; margin-bottom: 0; }
 .keyboard-shell { width: max-content; max-width: 100%; margin: 0 auto; border-radius: 14px; border: 1px solid rgba(165,194,255,.4); padding: 8px; background: rgba(8,14,30,.68); pointer-events: auto; }
 .keyboard { width: max-content; display: grid; gap: 6px; }
 .keyboard-row { display: flex; gap: 6px; justify-content: flex-start; }
@@ -161,6 +161,8 @@ canvas { display: block; }
   background: inherit;
 }
 @media (max-width: 900px) {
-  .stats-grid { width: 100%; grid-template-columns: repeat(2, minmax(120px, 1fr)); }
-  .target-panel { width: min(344px, 90vw); min-height: 122px; }
+  .hud-top { grid-template-columns: 1fr; align-items: flex-start; }
+  .stats-grid { width: 100%; grid-template-columns: repeat(2, minmax(120px, 1fr)); justify-self: stretch; }
+  .target-panel { width: min(344px, 90vw); min-height: 122px; margin-top: clamp(44px, 12vh, 130px); }
+  .log-inline { font-size: clamp(18px, 4.8vw, 28px); margin-top: 6px; }
 }
