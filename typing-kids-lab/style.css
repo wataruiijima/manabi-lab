@@ -100,6 +100,7 @@ canvas { display: block; }
 .target-panel { margin: clamp(56px, 14vh, 180px) auto 0; align-self: start; width: min(380px, 84vw); min-height: 128px; padding: 10px 16px 12px; border-radius: 18px; display: grid; justify-items: center; gap: 6px; text-align: center; background: rgba(8,16,36,0.62); border: 1px solid rgba(165,194,255,0.48); backdrop-filter: blur(2px); z-index: 2; }
 .target-mode { margin: 0; font-size: 11px; letter-spacing: .16em; color: #a5c2ff; font-weight: 800; }
 #targetKey { color: var(--accent); font-size: clamp(30px, 4.2vw, 48px); }
+.target-guide { margin: 0; min-height: 18px; font-size: 13px; color: #8fe6ff; font-weight: 800; letter-spacing: .04em; }
 .letter { display: inline-block; min-width: 0.62em; margin: 0 .02em; transition: transform 120ms ease, opacity 120ms ease, font-size 120ms ease; }
 .letter.done { font-size: 0.68em; opacity: 0.5; }
 .letter.current { font-size: 1em; opacity: 1; transform: scale(1.12); text-shadow: 0 0 14px rgba(255, 222, 118, 0.45); }
