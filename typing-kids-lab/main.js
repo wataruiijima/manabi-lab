@@ -18,7 +18,7 @@ const keyboardLayouts = {
       { id: "BACKSPACE", label: "Back", size: "xwide" },
     ],
     [{ id: "TAB", label: "Tab", size: "wide" }, ...letterRows[0].map((k) => ({ id: k, label: k })), { id: "@", label: "@" }, { id: "[", label: "[" }],
-    [{ id: "CAPS", label: "Caps", size: "wide" }, ...letterRows[1].map((k) => ({ id: k, label: k })), { id: ";", label: ";" }, { id: ":", label: ":" }, { id: "ENTER", label: "Enter", size: "xwide" }],
+    [{ id: "CAPS", label: "Caps", size: "wide" }, ...letterRows[1].map((k) => ({ id: k, label: k })), { id: ";", label: ";" }, { id: ":", label: ":" }, { id: "]", label: "]" }, { id: "ENTER", label: "Enter", size: "xwide" }],
     [{ id: "SHIFT", label: "Shift", size: "xwide" }, ...letterRows[2].map((k) => ({ id: k, label: k })), { id: ",", label: "," }, { id: ".", label: "." }, { id: "/", label: "/" }],
   ],
   US: [
@@ -98,6 +98,8 @@ function helperKeysOf(key) { return [...neighborsOf(key), ...(similarKeyMap.get(
 function buildKeyboard() {
   keyboardEl.innerHTML = "";
   keyButtons.clear();
+  keyboardEl.classList.toggle("layout-jis", settings.layout === "JIS");
+  keyboardEl.classList.toggle("layout-us", settings.layout === "US");
   const rows = keyboardLayouts[settings.layout];
   rows.forEach((row) => {
     const visible = row.filter((key) => {
@@ -108,11 +110,17 @@ function buildKeyboard() {
     if (visible.length === 0) return;
     const rowEl = document.createElement("div");
     rowEl.className = "keyboard-row";
+    const rowAnchor = visible[0]?.id;
+    if (rowAnchor === "CAPS") rowEl.classList.add("row-caps");
     visible.forEach((key) => {
       const keyEl = document.createElement("div");
       keyEl.className = `key ${key.size || ""}`.trim();
       if (!/^[A-Z]$/.test(key.id)) keyEl.classList.add("non-input");
       if (settings.layout === "JIS" && key.id === "ENTER") keyEl.classList.add("jis-enter");
+      if (settings.layout === "JIS" && (key.id === "[" || key.id === "]")) keyEl.classList.add("jis-bracket");
+      if (settings.layout === "JIS" && key.id === "TAB") keyEl.classList.add("jis-tab");
+      if (settings.layout === "JIS" && key.id === "CAPS") keyEl.classList.add("jis-caps");
+      if (settings.layout === "JIS" && key.id === "SHIFT") keyEl.classList.add("jis-shift");
       keyEl.textContent = key.label;
       rowEl.appendChild(keyEl);
       if (/^[A-Z]$/.test(key.id)) keyButtons.set(key.id, keyEl);
@@ -121,7 +129,7 @@ function buildKeyboard() {
   });
 }
 
-function missionLengthByCombo() { if (combo >= 24 || perfectStreak >= 10) return 4; if (combo >= 14 || perfectStreak >= 6) return 3; if (combo >= 7 || perfectStreak >= 3) return 2; return 1; }
+function missionLengthByCombo() { if (combo >= 34 || perfectStreak >= 14) return 5; if (combo >= 24 || perfectStreak >= 10) return 4; if (combo >= 14 || perfectStreak >= 6) return 3; if (combo >= 7 || perfectStreak >= 3) return 2; return 1; }
 function updateTargetDisplay() {
   targetKeyEl.innerHTML = targetSequence.map((char, index) => `<span class="letter ${index < targetIndex ? "done" : index === targetIndex ? "current" : "upcoming"}">${char}</span>`).join("");
   if (targetSequence.length >= 2) {
@@ -136,7 +144,7 @@ function setNextTarget(forceSingle = false) {
   } else {
     const unlockedLength = missionLengthByCombo(); const pool = wordMissions.filter((mission) => mission.word.length <= unlockedLength);
     const shouldUseMission = unlockedLength >= 2 && Math.random() < 0.62;
-    if (shouldUseMission && pool.length > 0) { currentMission = pool[Math.floor(Math.random() * pool.length)]; targetSequence = currentMission.word.split(""); }
+    if (shouldUseMission && pool.length > 0) { currentMission = pool[Math.floor(Math.random() * pool.length)]; targetSequence = currentMission.word.slice(0, 5).split(""); }
     else { currentMission = null; targetSequence = [flat[Math.floor(Math.random() * flat.length)]]; }
   }
   targetIndex = 0; updateTargetDisplay(); renderKeyboard();
