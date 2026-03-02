@@ -309,8 +309,16 @@ class InvaderScene extends Phaser.Scene {
     this.grid = this.add.tileSprite(0, 0, width, height, this.makeGridTexture()).setOrigin(0).setAlpha(0.26);
     this.enemyMonsters = ["👾", "👹", "🤖", "🦖", "🐙", "🦇", "👻"]; this.enemyLabels = ["いんべーだー", "おに", "ろぼ", "きょうりゅう", "たこ", "こうもり", "おばけ"]; this.enemyMonsterIndex = 0;
     this.enemy = this.add.text(width * 0.78, height * 0.28, this.enemyMonsters[0], { fontSize: `${Math.max(84, Math.floor(width * 0.08))}px` }).setOrigin(0.5);
-    this.enemyPatrolDirection = 1;
-    this.startEnemyPatrol();
+    this.enemySwayTween = this.tweens.add({
+      targets: this.enemy,
+      x: this.enemy.x + 12,
+      duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut",
+      onYoyo: () => { this.enemy.setScale(-1, 1); },
+      onRepeat: () => { this.enemy.setScale(1, 1); },
+    });
     this.player = this.add.text(width * 0.14, height * 0.88, "🛸", { fontSize: `${Math.max(56, Math.floor(width * 0.05))}px` }).setOrigin(0.5);
     this.enemyName = this.add.text(width * 0.78, height * 0.18, "てき: いんべーだー", { fontFamily: "monospace", fontSize: "20px", color: "#a9c1ff" }).setOrigin(0.5);
     this.enemyHpDots = this.add.text(width * 0.78, height * 0.36, "● ● ●", { fontFamily: "monospace", fontSize: "22px", color: "#b8ebff", stroke: "#000000", strokeThickness: 4 }).setOrigin(0.5).setAlpha(0.88);
@@ -351,9 +359,9 @@ class InvaderScene extends Phaser.Scene {
   fireWordBonus(emoji) { const badge = this.add.text(this.player.x + 24, this.player.y - 36, emoji, { fontSize: "56px", stroke: "#000", strokeThickness: 6 }).setOrigin(0.5); this.tweens.add({ targets: badge, x: this.enemy.x, y: this.enemy.y - 10, alpha: 0, duration: 420, onComplete: () => { this.applyDamage(22); badge.destroy(); } }); }
   applyDamage(damage) { this.enemyHp = Math.max(0, this.enemyHp - damage); this.updateEnemyHpDots(); if (this.enemyHp === 0) { defeatedCount += 1; waveEl.textContent = String(defeatedCount); this.enemyMonsterIndex = (this.enemyMonsterIndex + 1) % this.enemyMonsters.length; this.enemy.setText(this.enemyMonsters[this.enemyMonsterIndex]); this.enemyName.setText(`てき: ${this.enemyLabels[this.enemyMonsterIndex]}`); this.enemyHp = 100; this.updateEnemyHpDots(); this.moveEnemyToNewSpot(); this.startEnemyPatrol(); } }
   enemyAttack() { if (isGameOver || !isGameStarted) return; setPlayerHp(playerHp - 18); sfx.playerHit(); if (playerHp <= 0) triggerGameOver(); }
-  resetBattle() { this.enemyHp = 100; this.updateEnemyHpDots(); this.enemyPointIndex = 0; this.enemyPatrolDirection = 1; this.moveEnemyToNewSpot(false); this.startEnemyPatrol(); }
-  update(_, delta) { this.starA.tilePositionY -= 0.05 * delta; this.starB.tilePositionY -= 0.1 * delta; this.grid.tilePositionY -= 0.04 * delta; this.syncEnemyHud(); if (isGameOver || !isGameStarted) return; setInputDanger(inputDanger + delta * 0.0045); if (inputDanger >= 100) { setInputDanger(38); this.enemyAttack(); } }
-  handleResize() { const { width, height } = this.scale; this.starA.setSize(width, height); this.starB.setSize(width, height); this.grid.setSize(width, height); this.player.setPosition(width * 0.14, height * 0.88); const p = this.enemyPoints[this.enemyPointIndex]; this.enemy.setPosition(width * p.x, height * p.y); this.startEnemyPatrol(); this.syncEnemyHud(); this.updateEnemyHpDots(); this.attackWarning.setPosition(width * 0.5, height * 0.48); }
+  resetBattle() { this.enemyHp = 100; this.updateEnemyHpDots(); this.enemyPointIndex = 0; this.moveEnemyToNewSpot(false); }
+  update(_, delta) { this.starA.tilePositionY -= 0.05 * delta; this.starB.tilePositionY -= 0.1 * delta; this.grid.tilePositionY -= 0.04 * delta; this.syncEnemyHud(); if (isGameOver || !isGameStarted) return; setInputDanger(inputDanger + delta * 0.008); if (inputDanger >= 100) { setInputDanger(42); this.enemyAttack(); } }
+  handleResize() { const { width, height } = this.scale; this.starA.setSize(width, height); this.starB.setSize(width, height); this.grid.setSize(width, height); this.player.setPosition(width * 0.14, height * 0.88); const p = this.enemyPoints[this.enemyPointIndex]; this.enemy.setPosition(width * p.x, height * p.y); this.syncEnemyHud(); this.updateEnemyHpDots(); this.attackWarning.setPosition(width * 0.5, height * 0.48); }
 }
 
 function handleScore(rating, missionComplete = false) {
