@@ -56,6 +56,7 @@ const comboEl = getById("combo");
 const waveEl = getById("wave");
 const perfectStreakEl = getById("perfectStreak");
 const keyboardEl = getById("keyboard");
+const keyboardGuideOverlayEl = getById("keyboardGuideOverlay");
 const inputGaugeFillEl = getById("inputGaugeFill");
 const playerHpFillEl = getById("playerHpFill");
 const retryOverlayEl = getById("retryOverlay");
@@ -131,6 +132,7 @@ function directionArrow(fromKey, toKey) {
 
 function buildKeyboard() {
   keyboardEl.innerHTML = "";
+  if (keyboardGuideOverlayEl) keyboardGuideOverlayEl.innerHTML = "";
   keyButtons.clear();
   keyboardEl.classList.toggle("layout-jis", settings.layout === "JIS");
   keyboardEl.classList.toggle("layout-us", settings.layout === "US");
@@ -171,15 +173,7 @@ function updateTargetDisplay() {
     targetModeEl.textContent = `${missionName} ${targetIndex + 1}/${targetSequence.length}`;
   } else { targetModeEl.textContent = "ひとつ うつ"; }
 
-  const previousKey = typedLog[0] || "";
-  const target = currentTarget();
-  const dist = keyDistance(previousKey, target);
-  if (!previousKey || !Number.isFinite(dist) || dist <= 1) {
-    targetGuideEl.textContent = "";
-    return;
-  }
-  const arrow = directionArrow(previousKey, target);
-  targetGuideEl.textContent = `${previousKey} から ${arrow} ${target}`;
+  targetGuideEl.textContent = "";
 }
 function setNextTarget(forceSingle = false) {
   if (forceSingle) {
@@ -194,9 +188,62 @@ function setNextTarget(forceSingle = false) {
 }
 
 
+function keyCenterOf(key) {
+  const el = keyButtons.get(key);
+  if (!el || !keyboardGuideOverlayEl) return null;
+  const keyRect = el.getBoundingClientRect();
+  const overlayRect = keyboardGuideOverlayEl.getBoundingClientRect();
+  return { x: keyRect.left + keyRect.width / 2 - overlayRect.left, y: keyRect.top + keyRect.height / 2 - overlayRect.top };
+}
+
+function renderKeyboardGuide(fromKey, toKey) {
+  if (!keyboardGuideOverlayEl) return;
+  keyboardGuideOverlayEl.innerHTML = "";
+  const from = keyCenterOf(fromKey);
+  const to = keyCenterOf(toKey);
+  if (!from || !to) return;
+  const w = keyboardGuideOverlayEl.clientWidth || 1;
+  const h = keyboardGuideOverlayEl.clientHeight || 1;
+  keyboardGuideOverlayEl.setAttribute("viewBox", `0 0 ${w} ${h}`);
+
+  const ns = "http://www.w3.org/2000/svg";
+  const path = document.createElementNS(ns, "path");
+  const cpX = (from.x + to.x) / 2;
+  const cpY = Math.min(from.y, to.y) - Math.max(18, Math.abs(to.x - from.x) * 0.08);
+  path.setAttribute("d", `M ${from.x} ${from.y} Q ${cpX} ${cpY} ${to.x} ${to.y}`);
+  path.setAttribute("class", "guide-path");
+
+  const ring = document.createElementNS(ns, "circle");
+  ring.setAttribute("cx", String(to.x));
+  ring.setAttribute("cy", String(to.y));
+  ring.setAttribute("r", "13");
+  ring.setAttribute("class", "guide-ring");
+
+  const angle = Math.atan2(to.y - cpY, to.x - cpX);
+  const arrowLen = 14;
+  const arrowWidth = 8;
+  const bx = to.x - Math.cos(angle) * arrowLen;
+  const by = to.y - Math.sin(angle) * arrowLen;
+  const lx = bx + Math.cos(angle + Math.PI / 2) * arrowWidth;
+  const ly = by + Math.sin(angle + Math.PI / 2) * arrowWidth;
+  const rx = bx + Math.cos(angle - Math.PI / 2) * arrowWidth;
+  const ry = by + Math.sin(angle - Math.PI / 2) * arrowWidth;
+
+  const arrow = document.createElementNS(ns, "polygon");
+  arrow.setAttribute("points", `${to.x},${to.y} ${lx},${ly} ${rx},${ry}`);
+  arrow.setAttribute("class", "guide-arrow");
+
+  keyboardGuideOverlayEl.append(path, ring, arrow);
+}
+
+
+
 function renderKeyboard(pressed = "") {
   const target = currentTarget(); const helper = helperKeysOf(target); const idleElapsed = Date.now() - lastInputAt;
   const isIdle = !pressed && idleElapsed >= idleHintMs; const hintStage = !pressed ? Phaser.Math.Clamp((idleElapsed - idleHintMs) / 2100, 0, 1) : 0;
+  const previousKey = typedLog[0] || "";
+  const dist = keyDistance(previousKey, target);
+  const showGuide = isIdle && previousKey && Number.isFinite(dist) && dist > 1;
   keyButtons.forEach((el, key) => {
     el.classList.toggle("target", key === target);
     el.classList.toggle("near", helper.includes(key));
@@ -204,6 +251,8 @@ function renderKeyboard(pressed = "") {
     el.classList.toggle("hint", key === target && isIdle);
     if (key === target && isIdle) el.style.setProperty("--hint-stage", hintStage.toFixed(2)); else el.style.removeProperty("--hint-stage");
   });
+  if (showGuide) renderKeyboardGuide(previousKey, target);
+  else if (keyboardGuideOverlayEl) keyboardGuideOverlayEl.innerHTML = "";
 }
 
 function normalizeInputKey(event) { if (event.isComposing) return ""; if (/^Key[A-Z]$/.test(event.code)) return event.code.replace("Key", ""); const key = (event.key || "").toUpperCase(); return /^[A-Z]$/.test(key) ? key : ""; }
@@ -254,7 +303,7 @@ class InvaderScene extends Phaser.Scene {
     this.enemyFloatTween = this.tweens.add({ targets: this.enemy, y: this.enemy.y + 12, duration: 680, yoyo: true, repeat: -1, ease: "Sine.InOut" });
     this.player = this.add.text(width * 0.14, height * 0.88, "🛸", { fontSize: `${Math.max(56, Math.floor(width * 0.05))}px` }).setOrigin(0.5);
     this.enemyName = this.add.text(width * 0.78, height * 0.18, "てき: いんべーだー", { fontFamily: "monospace", fontSize: "20px", color: "#a9c1ff" }).setOrigin(0.5);
-    this.enemyHpDots = this.add.text(width * 0.78, height * 0.34, "● ● ●", { fontFamily: "monospace", fontSize: "24px", color: "#9de1ff", stroke: "#000000", strokeThickness: 5 }).setOrigin(0.5);
+    this.enemyHpDots = this.add.text(width * 0.78, height * 0.36, "● ● ●", { fontFamily: "monospace", fontSize: "22px", color: "#b8ebff", stroke: "#000000", strokeThickness: 4 }).setOrigin(0.5).setAlpha(0.88);
     this.impactText = this.add.text(width * 0.78, height * 0.11, "", { fontFamily: "monospace", fontSize: "52px", color: "#ffffff", stroke: "#000000", strokeThickness: 8 }).setOrigin(0.5).setAlpha(0);
     this.attackWarning = this.add.text(width * 0.5, height * 0.48, "", { fontFamily: "monospace", fontSize: "56px", color: "#ff6585", stroke: "#0c0310", strokeThickness: 8 }).setOrigin(0.5).setAlpha(0);
     this.scale.on("resize", () => this.handleResize()); this.enemyHp = 100; this.updateEnemyHpDots(); sceneRef = this; this.moveEnemyToNewSpot(false);
@@ -262,9 +311,9 @@ class InvaderScene extends Phaser.Scene {
   makeStarTexture(color, size) { const key = `star-${color}-${size}`; if (this.textures.exists(key)) return key; const g = this.make.graphics({ x: 0, y: 0, add: false }); g.fillStyle(0x000000, 0); g.fillRect(0, 0, 256, 256); g.fillStyle(color, 1); for (let i = 0; i < 120; i += 1) g.fillCircle(Phaser.Math.Between(0, 255), Phaser.Math.Between(0, 255), size); g.generateTexture(key, 256, 256); g.destroy(); return key; }
   makeGridTexture() { const key = "grid-tex"; if (this.textures.exists(key)) return key; const g = this.make.graphics({ x: 0, y: 0, add: false }); g.lineStyle(1, 0xffffff, 0.5); for (let x = 0; x <= 128; x += 16) g.lineBetween(x, 0, x, 128); for (let y = 0; y <= 128; y += 16) g.lineBetween(0, y, 128, y); g.generateTexture(key, 128, 128); g.destroy(); return key; }
   moveEnemyToNewSpot(animate = true) { let nextIndex = Phaser.Math.Between(0, this.enemyPoints.length - 1); if (nextIndex === this.enemyPointIndex) nextIndex = (nextIndex + 1) % this.enemyPoints.length; this.enemyPointIndex = nextIndex; const { width, height } = this.scale; const p = this.enemyPoints[nextIndex]; const nx = width * p.x; const ny = height * p.y; if (!animate) { this.enemy.setPosition(nx, ny); this.syncEnemyHud(); return; } this.tweens.add({ targets: this.enemy, x: nx, y: ny, duration: 320, ease: "Cubic.Out", onUpdate: () => this.syncEnemyHud() }); }
-  syncEnemyHud() { this.enemyName.setPosition(this.enemy.x, this.enemy.y - 70); this.enemyHpDots.setPosition(this.enemy.x, this.enemy.y + 72); this.impactText.setPosition(this.enemy.x, this.enemy.y - 116); }
+  syncEnemyHud() { this.enemyName.setPosition(this.enemy.x, this.enemy.y - 70); this.enemyHpDots.setPosition(this.enemy.x, this.enemy.y + 62); this.impactText.setPosition(this.enemy.x, this.enemy.y - 116); }
   enemyLifePips() { return Phaser.Math.Clamp(Math.ceil(this.enemyHp / 34), 0, 3); }
-  updateEnemyHpDots() { const lives = this.enemyLifePips(); this.enemyHpDots.setText(Array.from({ length: 3 }, (_, i) => (i < lives ? "●" : "○")).join(" ")); }
+  updateEnemyHpDots() { const lives = this.enemyLifePips(); this.enemyHpDots.setText(Array.from({ length: 3 }, (_, i) => (i < lives ? "◆" : "◇")).join(" ")); }
   hitStop(target, mode = "enemy") { this.cameras.main.shake(130, mode === "enemy" ? 0.005 : 0.012); this.tweens.add({ targets: target, x: target.x + Phaser.Math.Between(-8, 8), y: target.y + Phaser.Math.Between(-7, 7), yoyo: true, repeat: 1, duration: 28 }); }
   playGameOverEffect() { this.cameras.main.flash(100, 255, 70, 95, true); }
   playAttackFlash(rating) { const tint = rating === "perfect" ? [70, 255, 180] : [90, 220, 255]; this.cameras.main.flash(80, tint[0], tint[1], tint[2], true); }
