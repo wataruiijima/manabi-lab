@@ -243,7 +243,7 @@ function renderKeyboard(pressed = "") {
   const isIdle = !pressed && idleElapsed >= idleHintMs; const hintStage = !pressed ? Phaser.Math.Clamp((idleElapsed - idleHintMs) / 2100, 0, 1) : 0;
   const previousKey = typedLog[0] || "";
   const dist = keyDistance(previousKey, target);
-  const showGuide = isIdle && previousKey && Number.isFinite(dist) && dist > 1;
+  const showGuide = previousKey && Number.isFinite(dist) && dist > 0;
   keyButtons.forEach((el, key) => {
     el.classList.toggle("target", key === target);
     el.classList.toggle("near", helper.includes(key));
@@ -300,7 +300,16 @@ class InvaderScene extends Phaser.Scene {
     this.grid = this.add.tileSprite(0, 0, width, height, this.makeGridTexture()).setOrigin(0).setAlpha(0.26);
     this.enemyMonsters = ["👾", "👹", "🤖", "🦖", "🐙", "🦇", "👻"]; this.enemyLabels = ["いんべーだー", "おに", "ろぼ", "きょうりゅう", "たこ", "こうもり", "おばけ"]; this.enemyMonsterIndex = 0;
     this.enemy = this.add.text(width * 0.78, height * 0.28, this.enemyMonsters[0], { fontSize: `${Math.max(84, Math.floor(width * 0.08))}px` }).setOrigin(0.5);
-    this.enemyFloatTween = this.tweens.add({ targets: this.enemy, y: this.enemy.y + 12, duration: 680, yoyo: true, repeat: -1, ease: "Sine.InOut" });
+    this.enemySwayTween = this.tweens.add({
+      targets: this.enemy,
+      x: this.enemy.x + 12,
+      duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.InOut",
+      onYoyo: () => { this.enemy.setScale(-1, 1); },
+      onRepeat: () => { this.enemy.setScale(1, 1); },
+    });
     this.player = this.add.text(width * 0.14, height * 0.88, "🛸", { fontSize: `${Math.max(56, Math.floor(width * 0.05))}px` }).setOrigin(0.5);
     this.enemyName = this.add.text(width * 0.78, height * 0.18, "てき: いんべーだー", { fontFamily: "monospace", fontSize: "20px", color: "#a9c1ff" }).setOrigin(0.5);
     this.enemyHpDots = this.add.text(width * 0.78, height * 0.36, "● ● ●", { fontFamily: "monospace", fontSize: "22px", color: "#b8ebff", stroke: "#000000", strokeThickness: 4 }).setOrigin(0.5).setAlpha(0.88);
@@ -311,7 +320,7 @@ class InvaderScene extends Phaser.Scene {
   makeStarTexture(color, size) { const key = `star-${color}-${size}`; if (this.textures.exists(key)) return key; const g = this.make.graphics({ x: 0, y: 0, add: false }); g.fillStyle(0x000000, 0); g.fillRect(0, 0, 256, 256); g.fillStyle(color, 1); for (let i = 0; i < 120; i += 1) g.fillCircle(Phaser.Math.Between(0, 255), Phaser.Math.Between(0, 255), size); g.generateTexture(key, 256, 256); g.destroy(); return key; }
   makeGridTexture() { const key = "grid-tex"; if (this.textures.exists(key)) return key; const g = this.make.graphics({ x: 0, y: 0, add: false }); g.lineStyle(1, 0xffffff, 0.5); for (let x = 0; x <= 128; x += 16) g.lineBetween(x, 0, x, 128); for (let y = 0; y <= 128; y += 16) g.lineBetween(0, y, 128, y); g.generateTexture(key, 128, 128); g.destroy(); return key; }
   moveEnemyToNewSpot(animate = true) { let nextIndex = Phaser.Math.Between(0, this.enemyPoints.length - 1); if (nextIndex === this.enemyPointIndex) nextIndex = (nextIndex + 1) % this.enemyPoints.length; this.enemyPointIndex = nextIndex; const { width, height } = this.scale; const p = this.enemyPoints[nextIndex]; const nx = width * p.x; const ny = height * p.y; if (!animate) { this.enemy.setPosition(nx, ny); this.syncEnemyHud(); return; } this.tweens.add({ targets: this.enemy, x: nx, y: ny, duration: 320, ease: "Cubic.Out", onUpdate: () => this.syncEnemyHud() }); }
-  syncEnemyHud() { this.enemyName.setPosition(this.enemy.x, this.enemy.y - 70); this.enemyHpDots.setPosition(this.enemy.x, this.enemy.y + 62); this.impactText.setPosition(this.enemy.x, this.enemy.y - 116); }
+  syncEnemyHud() { this.enemyName.setPosition(this.enemy.x, this.enemy.y - 100); this.enemyHpDots.setPosition(this.enemy.x, this.enemy.y + 78); this.impactText.setPosition(this.enemy.x, this.enemy.y - 126); }
   enemyLifePips() { return Phaser.Math.Clamp(Math.ceil(this.enemyHp / 34), 0, 3); }
   updateEnemyHpDots() { const lives = this.enemyLifePips(); this.enemyHpDots.setText(Array.from({ length: 3 }, (_, i) => (i < lives ? "◆" : "◇")).join(" ")); }
   hitStop(target, mode = "enemy") { this.cameras.main.shake(130, mode === "enemy" ? 0.005 : 0.012); this.tweens.add({ targets: target, x: target.x + Phaser.Math.Between(-8, 8), y: target.y + Phaser.Math.Between(-7, 7), yoyo: true, repeat: 1, duration: 28 }); }
@@ -324,7 +333,7 @@ class InvaderScene extends Phaser.Scene {
   applyDamage(damage) { this.enemyHp = Math.max(0, this.enemyHp - damage); this.updateEnemyHpDots(); if (this.enemyHp === 0) { defeatedCount += 1; waveEl.textContent = String(defeatedCount); this.enemyMonsterIndex = (this.enemyMonsterIndex + 1) % this.enemyMonsters.length; this.enemy.setText(this.enemyMonsters[this.enemyMonsterIndex]); this.enemyName.setText(`てき: ${this.enemyLabels[this.enemyMonsterIndex]}`); this.enemyHp = 100; this.updateEnemyHpDots(); this.moveEnemyToNewSpot(); } }
   enemyAttack() { if (isGameOver || !isGameStarted) return; setPlayerHp(playerHp - 18); sfx.playerHit(); if (playerHp <= 0) triggerGameOver(); }
   resetBattle() { this.enemyHp = 100; this.updateEnemyHpDots(); this.enemyPointIndex = 0; this.moveEnemyToNewSpot(false); }
-  update(_, delta) { this.starA.tilePositionY -= 0.05 * delta; this.starB.tilePositionY -= 0.1 * delta; this.grid.tilePositionY -= 0.04 * delta; if (isGameOver || !isGameStarted) return; setInputDanger(inputDanger + delta * 0.008); if (inputDanger >= 100) { setInputDanger(42); this.enemyAttack(); } }
+  update(_, delta) { this.starA.tilePositionY -= 0.05 * delta; this.starB.tilePositionY -= 0.1 * delta; this.grid.tilePositionY -= 0.04 * delta; this.syncEnemyHud(); if (isGameOver || !isGameStarted) return; setInputDanger(inputDanger + delta * 0.008); if (inputDanger >= 100) { setInputDanger(42); this.enemyAttack(); } }
   handleResize() { const { width, height } = this.scale; this.starA.setSize(width, height); this.starB.setSize(width, height); this.grid.setSize(width, height); this.player.setPosition(width * 0.14, height * 0.88); const p = this.enemyPoints[this.enemyPointIndex]; this.enemy.setPosition(width * p.x, height * p.y); this.syncEnemyHud(); this.updateEnemyHpDots(); this.attackWarning.setPosition(width * 0.5, height * 0.48); }
 }
 
