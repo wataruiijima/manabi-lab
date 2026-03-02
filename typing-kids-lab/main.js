@@ -208,18 +208,27 @@ function renderKeyboardGuide(fromKey, toKey) {
 
   const ns = "http://www.w3.org/2000/svg";
   const path = document.createElementNS(ns, "path");
-  const cpX = (from.x + to.x) / 2;
-  const cpY = Math.min(from.y, to.y) - Math.max(18, Math.abs(to.x - from.x) * 0.08);
-  path.setAttribute("d", `M ${from.x} ${from.y} Q ${cpX} ${cpY} ${to.x} ${to.y}`);
+  path.setAttribute("d", `M ${from.x} ${from.y} L ${to.x} ${to.y}`);
   path.setAttribute("class", "guide-path");
 
   const ring = document.createElementNS(ns, "circle");
-  ring.setAttribute("cx", String(to.x));
-  ring.setAttribute("cy", String(to.y));
-  ring.setAttribute("r", "13");
+  ring.setAttribute("r", "11");
   ring.setAttribute("class", "guide-ring");
 
-  const angle = Math.atan2(to.y - cpY, to.x - cpX);
+  const motion = document.createElementNS(ns, "animateMotion");
+  motion.setAttribute("dur", "2.2s");
+  motion.setAttribute("repeatCount", "indefinite");
+  motion.setAttribute("path", `M ${from.x} ${from.y} L ${to.x} ${to.y}`);
+
+  const pulse = document.createElementNS(ns, "animate");
+  pulse.setAttribute("attributeName", "opacity");
+  pulse.setAttribute("values", "0.35;0.9;0.35");
+  pulse.setAttribute("dur", "2.2s");
+  pulse.setAttribute("repeatCount", "indefinite");
+
+  ring.append(motion, pulse);
+
+  const angle = Math.atan2(to.y - from.y, to.x - from.x);
   const arrowLen = 14;
   const arrowWidth = 8;
   const bx = to.x - Math.cos(angle) * arrowLen;
@@ -319,6 +328,24 @@ class InvaderScene extends Phaser.Scene {
   }
   makeStarTexture(color, size) { const key = `star-${color}-${size}`; if (this.textures.exists(key)) return key; const g = this.make.graphics({ x: 0, y: 0, add: false }); g.fillStyle(0x000000, 0); g.fillRect(0, 0, 256, 256); g.fillStyle(color, 1); for (let i = 0; i < 120; i += 1) g.fillCircle(Phaser.Math.Between(0, 255), Phaser.Math.Between(0, 255), size); g.generateTexture(key, 256, 256); g.destroy(); return key; }
   makeGridTexture() { const key = "grid-tex"; if (this.textures.exists(key)) return key; const g = this.make.graphics({ x: 0, y: 0, add: false }); g.lineStyle(1, 0xffffff, 0.5); for (let x = 0; x <= 128; x += 16) g.lineBetween(x, 0, x, 128); for (let y = 0; y <= 128; y += 16) g.lineBetween(0, y, 128, y); g.generateTexture(key, 128, 128); g.destroy(); return key; }
+  startEnemyPatrol() {
+    if (this.enemyPatrolTween) this.enemyPatrolTween.stop();
+    const { width } = this.scale;
+    const travel = Math.max(40, width * 0.045);
+    const targetX = Phaser.Math.Clamp(this.enemy.x + this.enemyPatrolDirection * travel, width * 0.12, width * 0.88);
+    this.enemy.setScale(this.enemyPatrolDirection >= 0 ? 1 : -1, 1);
+    this.enemyPatrolTween = this.tweens.add({
+      targets: this.enemy,
+      x: targetX,
+      duration: 1300,
+      ease: "Sine.InOut",
+      onUpdate: () => this.syncEnemyHud(),
+      onComplete: () => {
+        this.enemyPatrolDirection *= -1;
+        this.startEnemyPatrol();
+      },
+    });
+  }
   moveEnemyToNewSpot(animate = true) { let nextIndex = Phaser.Math.Between(0, this.enemyPoints.length - 1); if (nextIndex === this.enemyPointIndex) nextIndex = (nextIndex + 1) % this.enemyPoints.length; this.enemyPointIndex = nextIndex; const { width, height } = this.scale; const p = this.enemyPoints[nextIndex]; const nx = width * p.x; const ny = height * p.y; if (!animate) { this.enemy.setPosition(nx, ny); this.syncEnemyHud(); return; } this.tweens.add({ targets: this.enemy, x: nx, y: ny, duration: 320, ease: "Cubic.Out", onUpdate: () => this.syncEnemyHud() }); }
   syncEnemyHud() { this.enemyName.setPosition(this.enemy.x, this.enemy.y - 100); this.enemyHpDots.setPosition(this.enemy.x, this.enemy.y + 78); this.impactText.setPosition(this.enemy.x, this.enemy.y - 126); }
   enemyLifePips() { return Phaser.Math.Clamp(Math.ceil(this.enemyHp / 34), 0, 3); }
@@ -330,7 +357,7 @@ class InvaderScene extends Phaser.Scene {
   spawnImpactBurst(x, y, color = 0xff77aa) { for (let i = 0; i < 8; i += 1) { const dot = this.add.circle(x, y, Phaser.Math.Between(3, 6), color, 0.95); const a = Phaser.Math.FloatBetween(0, Math.PI * 2); const dist = Phaser.Math.Between(40, 95); this.tweens.add({ targets: dot, x: x + Math.cos(a) * dist, y: y + Math.sin(a) * dist, alpha: 0, scale: 0.2, duration: 380, ease: "Cubic.Out", onComplete: () => dot.destroy() }); } }
   fireLetter(letter, rating) { const { width, height } = this.scale; const colors = { perfect: "#61ffb6", good: "#5fe5ff", miss: "#a6b2cb" }; const damageMap = { perfect: 28, good: 16, miss: 0 }; const bullet = this.add.text(width * 0.18, height * 0.88, letter, { fontFamily: "monospace", fontSize: rating === "perfect" ? "72px" : "56px", color: colors[rating], stroke: "#000", strokeThickness: 8 }).setOrigin(0.5).setScale(0.5); this.tweens.add({ targets: bullet, x: this.enemy.x - 28, y: this.enemy.y + 8, scale: 1.18, alpha: { from: 0.45, to: 1 }, duration: rating === "perfect" ? 280 : 360, onComplete: () => bullet.destroy() }); const damage = damageMap[rating]; if (damage > 0) { this.hitStop(this.enemy); this.playAttackFlash(rating); this.applyDamage(damage); } }
   fireWordBonus(emoji) { const badge = this.add.text(this.player.x + 24, this.player.y - 36, emoji, { fontSize: "56px", stroke: "#000", strokeThickness: 6 }).setOrigin(0.5); this.tweens.add({ targets: badge, x: this.enemy.x, y: this.enemy.y - 10, alpha: 0, duration: 420, onComplete: () => { this.applyDamage(22); badge.destroy(); } }); }
-  applyDamage(damage) { this.enemyHp = Math.max(0, this.enemyHp - damage); this.updateEnemyHpDots(); if (this.enemyHp === 0) { defeatedCount += 1; waveEl.textContent = String(defeatedCount); this.enemyMonsterIndex = (this.enemyMonsterIndex + 1) % this.enemyMonsters.length; this.enemy.setText(this.enemyMonsters[this.enemyMonsterIndex]); this.enemyName.setText(`てき: ${this.enemyLabels[this.enemyMonsterIndex]}`); this.enemyHp = 100; this.updateEnemyHpDots(); this.moveEnemyToNewSpot(); } }
+  applyDamage(damage) { this.enemyHp = Math.max(0, this.enemyHp - damage); this.updateEnemyHpDots(); if (this.enemyHp === 0) { defeatedCount += 1; waveEl.textContent = String(defeatedCount); this.enemyMonsterIndex = (this.enemyMonsterIndex + 1) % this.enemyMonsters.length; this.enemy.setText(this.enemyMonsters[this.enemyMonsterIndex]); this.enemyName.setText(`てき: ${this.enemyLabels[this.enemyMonsterIndex]}`); this.enemyHp = 100; this.updateEnemyHpDots(); this.moveEnemyToNewSpot(); this.startEnemyPatrol(); } }
   enemyAttack() { if (isGameOver || !isGameStarted) return; setPlayerHp(playerHp - 18); sfx.playerHit(); if (playerHp <= 0) triggerGameOver(); }
   resetBattle() { this.enemyHp = 100; this.updateEnemyHpDots(); this.enemyPointIndex = 0; this.moveEnemyToNewSpot(false); }
   update(_, delta) { this.starA.tilePositionY -= 0.05 * delta; this.starB.tilePositionY -= 0.1 * delta; this.grid.tilePositionY -= 0.04 * delta; this.syncEnemyHud(); if (isGameOver || !isGameStarted) return; setInputDanger(inputDanger + delta * 0.008); if (inputDanger >= 100) { setInputDanger(42); this.enemyAttack(); } }

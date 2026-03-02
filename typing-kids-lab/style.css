@@ -106,9 +106,9 @@ canvas { display: block; }
 .letter.current { font-size: 1em; opacity: 1; transform: scale(1.12); text-shadow: 0 0 14px rgba(255, 222, 118, 0.45); }
 .letter.upcoming { font-size: 0.78em; opacity: 0.78; }
 #feedback { font-size: 14px; font-weight: 800; }
-.gauge-line { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 2px; opacity: 0.68; }
+.gauge-line { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 2px; opacity: 0.68; max-width: 440px; }
 .gauge-block > span { font-size: 11px; letter-spacing: 0.03em; color: rgba(201, 220, 255, 0.85); }
-.gauge { height: 9px; border-radius: 999px; background: rgba(58,77,126,.22); overflow: hidden; margin-top: 5px; border: 1px solid rgba(120, 150, 215, 0.28); }
+.gauge { height: 7px; border-radius: 999px; background: rgba(58,77,126,.18); overflow: hidden; margin-top: 5px; border: 1px solid rgba(120, 150, 215, 0.22); }
 .gauge-fill { height: 100%; width: 0; transition: width .2s linear; opacity: 0.78; }
 .gauge-fill.input { background: linear-gradient(90deg,#82d7f8,#9be4ff); }
 .gauge-fill.hp { background: linear-gradient(90deg,#8ce9ba,#f5dca0,#f3a4b2); }
@@ -116,11 +116,10 @@ canvas { display: block; }
 .bottom-ui { align-self: end; margin-bottom: 0; }
 .keyboard-shell { position: relative; width: max-content; max-width: 100%; margin: 0 auto; border-radius: 14px; border: 1px solid rgba(165,194,255,.4); padding: 8px; background: rgba(8,14,30,.68); pointer-events: auto; }
 .keyboard-guide-overlay { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); overflow: visible; pointer-events: none; z-index: 2; }
-.guide-path { fill: none; stroke: rgba(110, 222, 255, 0.9); stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 8px rgba(94, 220, 255, 0.6)); stroke-dasharray: 9 10; animation: guide-dash 1s linear infinite; }
-.guide-ring { fill: rgba(110, 222, 255, 0.14); stroke: rgba(180, 240, 255, 0.95); stroke-width: 2.8; animation: guide-pulse 850ms ease-in-out infinite; }
-.guide-arrow { fill: rgba(178, 242, 255, 0.96); filter: drop-shadow(0 0 8px rgba(100, 214, 255, 0.65)); }
+.guide-path { fill: none; stroke: rgba(110, 222, 255, 0.48); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 5px rgba(94, 220, 255, 0.28)); stroke-dasharray: 9 10; animation: guide-dash 2.4s linear infinite; }
+.guide-ring { fill: rgba(110, 222, 255, 0.1); stroke: rgba(180, 240, 255, 0.55); stroke-width: 1.8;  }
+.guide-arrow { fill: rgba(178, 242, 255, 0.6); filter: drop-shadow(0 0 5px rgba(100, 214, 255, 0.3)); }
 @keyframes guide-dash { to { stroke-dashoffset: -38; } }
-@keyframes guide-pulse { 0%, 100% { transform: scale(0.88); opacity: 0.55; } 50% { transform: scale(1.08); opacity: 1; } }
 .keyboard { width: max-content; display: grid; gap: 6px; }
 .keyboard-row { display: flex; gap: 6px; justify-content: flex-start; }
 .key {
